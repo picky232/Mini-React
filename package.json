@@ -1,0 +1,23 @@
+{
+  "name": "mini-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Vanilla JavaScript Mini React learning project",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
+    "typecheck": "tsc --project jsconfig.json",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "jsdom": "31.0.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

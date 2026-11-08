@@ -124,3 +124,30 @@
 - 테스트 영역에 다양한 태그와 요소를 추가해 여러 동작과 변화를 자유롭게 확인해 보세요.
 - **엣지 케이스를 최대한 고려** 합니다.
 - 이력서와 포트폴리오에 포함할 수 있을 만큼 완성도 높은 수준으로 구현합니다.
+
+## Stage 0 — 개발 시작
+
+현재는 설계·데이터 계약·테스트 환경만 구성되어 있습니다. VNode 생성/변환, Diff, Patch, History 및 데모는 아직 구현하지 않았습니다.
+
+- [데이터 구조·인터페이스·의존성](docs/architecture.md)
+- [단계별 구현·검증·학습 계획](PLAN.md)
+- [AI 작업 공통 지침](AGENTS.md)
+- [JavaScript JSDoc 계약](src/core/contracts.js)
+
+Node.js 지원 범위는 package.json의 engines를 따릅니다. 초기 검증 환경은 Node 26.5.0 / npm 11.17.0입니다. 모든 의존성은 개발 도구이며 UI 런타임 프레임워크는 사용하지 않습니다.
+
+```sh
+npm ci
+npm run check
+```
+
+| 명령 | 용도 |
+| --- | --- |
+| npm test | Vitest 전체 실행, watch 없이 종료 |
+| npm run test:unit | Node 환경 단위 테스트 |
+| npm run test:integration | jsdom 환경 통합 테스트 |
+| npm run test:watch | 개발 중 변경 감지 |
+| npm run typecheck | JS/JSDoc 계약 정적 검사, 출력 파일 없음 |
+| npm run check | 정적 검사 후 전체 테스트 |
+
+현재 Vitest 테스트는 Node·DOM·이벤트·fixture 정리 환경만 확인합니다. tests/contracts는 올바른 데이터와 잘못된 데이터의 타입 검사를 수행하며, 엔진 기능 테스트나 엔진 통합 테스트를 대신하지 않습니다. TypeScript는 JSDoc 검사에만 사용하며 소스는 JavaScript로 유지합니다. DOM이 필요한 테스트에는 파일 첫 줄에 `// @vitest-environment jsdom`을 붙입니다.
