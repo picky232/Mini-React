@@ -171,6 +171,33 @@ test('Undo와 Redo가 미반영 편집을 버리고 두 영역을 같은 상태�
   expect(redo.disabled).toBe(true);
 });
 
+test('여러 루트가 있는 초안에서도 뒤로가기 한 번으로 이전 상태를 복원한다', () => {
+  const { actual, draft, patch, undo, redo, actualCode, draftCode, editTitle } = mountDemo();
+  const root = actual.firstChild;
+  const original = actual.innerHTML;
+  editTitle('B');
+  patch.click();
+  const saved = actual.innerHTML;
+
+  const extraRoot = document.createElement('p');
+  extraRoot.textContent = '미반영 초안';
+  draft.append(extraRoot);
+  expect(draft.childNodes).toHaveLength(2);
+
+  undo.click();
+  expect(actual.firstChild).toBe(root);
+  expect(actual.innerHTML).toBe(original);
+  expect(draft.innerHTML).toBe(original);
+  expect(actualCode.value).toBe(original);
+  expect(draftCode.value).toBe(original);
+  expect(undo.disabled).toBe(true);
+  expect(redo.disabled).toBe(false);
+
+  redo.click();
+  expect(actual.innerHTML).toBe(saved);
+  expect(draft.innerHTML).toBe(saved);
+});
+
 test('Undo 이후 새 변경을 반영하면 Redo는 새 분기만 따라간다', () => {
   const { actual, draft, patch, undo, redo, status, editTitle } = mountDemo();
   editTitle('B');

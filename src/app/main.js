@@ -134,12 +134,16 @@ export function startDemo({ actual, test, patchButton, undoButton, redoButton, s
 
     const saved = getCurrent(history);
     try {
-      const draft = readArea(test);
+      const draft = test.childNodes.length > 1 ? undefined : readArea(test);
       const next = getCurrent(target);
 
-      // 실제 영역과 편집 영역의 현재 내용은 다를 수 있어 각각 비교한다.
       applyPatches(actual, diff(saved, next));
-      applyPatches(test, diff(draft, next));
+      if (draft === undefined) {
+        // 여러 루트가 있는 초안을 버리고 선택한 이력의 화면을 다시 만든다.
+        renderArea(test, next);
+      } else {
+        applyPatches(test, diff(draft, next));
+      }
       history = target;
       syncCode();
       updateControls(message);
