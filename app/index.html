@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mini React · Phase 2</title>
+  <!-- 색·글꼴·카드·버튼·patch 로그는 Phase 1 스타일을 그대로 쓰고, 앱 전용만 style.css에 둔다 -->
+  <link rel="stylesheet" href="../phase1/style.css">
+  <link rel="stylesheet" href="./style.css">
+  <script>
+    // 화면을 그리기 전에 테마를 정해야 깜빡이지 않는다. 저장된 선택이 없으면 시스템 설정을 따른다
+    {
+      let saved = null;
+      try { saved = localStorage.getItem('theme'); } catch {}
+      document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+  </script>
+</head>
+<body>
+  <header class="hero">
+    <button id="theme-toggle" class="theme-toggle" type="button"></button>
+    <p class="hero-eyebrow">Phase 2</p>
+    <h1>Mini React</h1>
+    <p class="hero-tags">
+      <span class="chip chip-blue">Component</span>
+      <span class="chip chip-indigo">Hooks</span>
+      <span class="chip chip-green">key 재조정</span>
+      <span class="chip chip-orange">memo</span>
+    </p>
+  </header>
+
+  <main class="phase2">
+    <!-- App 루트 컴포넌트가 이 안을 그린다. 이 div 밖은 미니 리액트가 건드리지 않는다 -->
+    <section class="card" aria-label="할 일 앱">
+      <div id="app"></div>
+    </section>
+    <!-- Hooks 인스펙터 루트. display: contents라서 안의 카드들이 main 그리드에 바로 놓인다 -->
+    <div id="inspector"></div>
+  </main>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -40,6 +40,8 @@ export function describePatch(p, prev) {
       return { target: label, detail: `− ${short(vnodeToHTML(node))}` };
     case 'REPLACE':
       return { target: label, detail: `${short(vnodeToHTML(node))} → ${short(vnodeToHTML(p.node))}` };
+    case 'MOVE': // from·to는 이전 트리가 아니라 적용 시점의 자식 인덱스 (Phase 2 key 목록)
+      return { target: `${label} 의 자식`, detail: `[${p.from}]번을 [${p.to}]번 앞으로 이동 (노드 재사용)` };
     default:
       return { target: label, detail: JSON.stringify(p) };
   }

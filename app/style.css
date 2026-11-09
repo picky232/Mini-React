@@ -1,0 +1,82 @@
+/* Phase 2 데모 전용. 색 토큰(--accent 등)은 phase1/style.css에서 온다 */
+
+.chip-orange { --c: var(--orange); }
+
+/* 1행: 앱 | 인스펙터, 2행: patch 로그 (전체 폭) */
+main.phase2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+#inspector { display: contents; }
+main.phase2 .log { grid-column: 1 / -1; }
+
+/* 할 일 앱 */
+.todo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.todo-count { margin: 0; font-size: 15px; color: var(--sub); font-variant-numeric: tabular-nums; }
+
+.todo-form { display: flex; gap: 10px; margin: 20px 0 16px; }
+.todo-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--well);
+  color: var(--ink);
+  font: 16px var(--sans);
+}
+.todo-form input:focus-visible, .todo-list input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
+.todo-form button { min-height: 44px; }
+
+.todo-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.segmented { display: inline-flex; padding: 3px; border-radius: 980px; background: var(--soft); }
+.segmented button { min-height: 30px; padding: 4px 14px; background: transparent; font-size: 14px; }
+.segmented button.on { background: var(--card); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+.todo-toolbar .buttons button { font-size: 14px; min-height: 36px; }
+
+.todo-list { margin: 0; padding: 0; list-style: none; }
+.todo-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--line);
+}
+.todo-list label { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; cursor: pointer; }
+.todo-list input[type="checkbox"] { width: 20px; height: 20px; flex: none; accent-color: var(--accent); }
+.todo-list span { overflow-wrap: anywhere; }
+.todo-list li.done span { color: var(--sub); text-decoration: line-through; }
+.todo-list .remove { min-height: 32px; padding: 4px 12px; font-size: 13px; color: var(--red); background: transparent; }
+.todo-list .remove:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+.todo-empty { margin: 24px 0 8px; text-align: center; color: var(--sub); }
+
+/* 인스펙터 */
+.inspector-sub { margin: 8px 0 16px; font-size: 14px; color: var(--sub); }
+.mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.mini-stat { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 12px; background: var(--well); border: 1px solid var(--line); }
+.mini-stat-value { font: 700 22px/1.2 var(--display); font-variant-numeric: tabular-nums; }
+.mini-stat-label { font-size: 12px; color: var(--sub); }
+.mini-stat small { margin-top: 2px; font-size: 11px; color: var(--green); }
+
+table.hooks { width: 100%; border-collapse: collapse; font: 13px/1.5 var(--mono); letter-spacing: 0; table-layout: fixed; }
+table.hooks th { padding: 6px 8px; text-align: left; font: 600 12px var(--sans); color: var(--sub); border-bottom: 1px solid var(--line); }
+table.hooks th:first-child { width: 32px; }
+table.hooks th:nth-child(2) { width: 96px; }
+table.hooks td { padding: 8px; border-bottom: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.hooks .hook-index { color: var(--sub); }
+table.hooks .hook-deps { color: var(--sub); }
+/* 이번 렌더에서 값이 바뀐 칸 */
+table.hooks tr.changed td { background: color-mix(in srgb, var(--green) 12%, transparent); }
+table.hooks .tag { min-width: 0; font-size: 12px; }
+.tag-useState { --c: var(--accent); }
+.tag-useMemo { --c: var(--indigo); }
+.tag-useEffect { --c: var(--orange); }
+.tag-MOVE { --c: color-mix(in srgb, var(--red) 55%, var(--indigo)); }
+.tag-NONE { --c: var(--sub); }
+
+@media (max-width: 760px) {
+  main.phase2 { grid-template-columns: minmax(0, 1fr); }
+  .todo-form { flex-direction: column; }
+}

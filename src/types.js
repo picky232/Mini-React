@@ -2,7 +2,10 @@
 
 /**
  * 엘리먼트 VNode. type은 소문자 태그 이름, props는 속성 이름 → 문자열 값.
- * @typedef {{ type: string, props: Record<string, string>, children: VNode[] }} ElementVNode
+ * Phase 2의 h()가 만든 VNode에만 있는 선택 필드 (HTML에서 읽은 VNode에는 없다):
+ * - key: 형제 사이에서 노드의 정체성. 형제 전부에 key가 있으면 diff가 위치 대신 key로 짝짓는다
+ * - events: 이벤트 이름 → 핸들러 (예: { click: fn }). props에 넣지 않으므로 diff·createElement는 함수를 보지 않는다
+ * @typedef {{ type: string, props: Record<string, string>, children: VNode[], key?: string, events?: Record<string, Function> }} ElementVNode
  */
 
 /**
@@ -43,14 +46,24 @@
  * @typedef {{ type: 'TEXT', path: Path, text: string }} TextPatch                    path = 대상(#text)
  * @typedef {{ type: 'PROPS', path: Path, set: Record<string, string>, remove: string[] }} PropsPatch
  *   set: 새로 생기거나 값이 바뀐 속성만. remove: 사라진 속성 이름. 둘 다 항상 존재(비어 있어도).
- * @typedef {CreatePatch | RemovePatch | ReplacePatch | TextPatch | PropsPatch} Patch
+ * @typedef {{ type: 'MOVE', path: Path, from: number, to: number }} MovePatch
+ *   path = 부모. 지금 [from]번 자식을 지금 [to]번 자식 앞으로 옮긴다 (to = 자식 수면 맨 끝). key 목록에서만 나온다
+ * @typedef {CreatePatch | RemovePatch | ReplacePatch | TextPatch | PropsPatch | MovePatch} Patch
  */
 
 /**
  * diff가 내보내는 순서 (patch는 이 배열을 앞에서부터 그대로 적용한다):
+ * 0. 두 노드가 같은 객체(===)면 아무것도 내보내지 않는다 (memo가 재사용한 VNode)
  * 1. 노드 자신의 patch (REPLACE면 하위는 비교하지 않음 / TEXT / PROPS)
  * 2. 겹치는 자식들을 인덱스 오름차순으로 재귀
  * 3. 남는 자식: 이전 쪽이 길면 REMOVE를 인덱스 내림차순, 새 쪽이 길면 CREATE를 인덱스 오름차순
+ *
+ * key 목록(형제 전부에 서로 다른 key가 있을 때)은 3번 대신:
+ * a. 같은 key끼리 이전 인덱스 오름차순으로 재귀 (path는 이전 위치)
+ * b. 새 목록에 없는 key를 이전 인덱스 내림차순으로 REMOVE
+ * c. 순서가 바뀐 노드만 MOVE (가장 긴 증가 부분수열에 든 노드는 그대로 둠)
+ * d. 새 key를 새 인덱스 오름차순으로 CREATE
+ * 한 층의 구조 변경(b~d)은 그 층의 자식 내부 patch(a)가 끝난 뒤에 나오므로, 하위 path는 이전 트리 기준 그대로 맞는다.
  */
 
 export const PATCH = Object.freeze({
@@ -59,6 +72,7 @@ export const PATCH = Object.freeze({
   REPLACE: 'REPLACE',
   TEXT: 'TEXT',
   PROPS: 'PROPS',
+  MOVE: 'MOVE',
 });
 
 export const TEXT = '#text';
