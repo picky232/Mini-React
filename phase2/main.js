@@ -1,5 +1,5 @@
 /*
- * 데모 페이지 연결. 할 일 앱(App)과 Hooks 인스펙터를 각각 루트 컴포넌트로 mount한다.
+ * Phase 2 확인 페이지 연결. 할 일 앱(App)과 Hooks 인스펙터를 각각 루트 컴포넌트로 mount한다.
  * 인스펙터도 미니 리액트로 그린다: App이 화면에 반영될 때마다(onCommit) 인스펙터의 props를 바꾸고 update()한다.
  */
 import { h, FunctionComponent } from '../src/component.js';

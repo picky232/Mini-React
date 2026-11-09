@@ -1,5 +1,5 @@
 /*
- * 데모: 할 일 앱.
+ * Phase 2 엔진 확인용 임시 데모: 할 일 앱. (최종 데모 웹페이지는 다른 주제로 따로 만든다)
  * 상태(todos, text, filter)는 전부 루트 App에만 있고, 자식은 props만 받아 VNode를 돌려주는 순수 함수다 (Lifting State Up).
  * 자식이 상태를 바꿔야 할 때는 App이 내려준 함수(actions, onInput 등)를 부른다.
  */

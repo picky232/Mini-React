@@ -1,7 +1,7 @@
-// 데모 앱 기능 테스트: 사용자가 하는 조작을 jsdom에서 그대로 흉내 내고 화면과 patch를 확인한다
+// Phase 2 확인 페이지(임시 할 일 앱) 기능 테스트: 사용자가 하는 조작을 jsdom에서 그대로 흉내 내고 화면과 patch를 확인한다
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FunctionComponent } from '../src/component.js';
-import { App, STORAGE_KEY } from '../app/App.js';
+import { App, STORAGE_KEY } from '../phase2/App.js';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -44,7 +44,7 @@ beforeEach(() => {
   start();
 });
 
-describe('데모: 할 일 앱', () => {
+describe('Phase 2 확인 페이지: 할 일 앱', () => {
   it('처음엔 샘플 3개를 그리고 남은 개수를 보여 준다', () => {
     expect(texts()).toEqual(['장보기', '운동 & 스트레칭', 'Phase 2 발표 준비']);
     expect($('.todo-count').textContent).toBe('남은 일 2개 · 전체 3개');

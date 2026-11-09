@@ -21,7 +21,8 @@ python3 -m http.server 5517
 ```
 
 - Phase 1 검증 페이지: http://localhost:5517/phase1/
-- Phase 2 데모(할 일 앱 + Hooks 인스펙터): http://localhost:5517/app/
+- Phase 2 확인 페이지(임시: 할 일 앱 + Hooks 인스펙터): http://localhost:5517/phase2/
+- 최종 데모 웹페이지는 Phase 2를 마친 뒤 별도 주제로 만들 예정입니다.
 - ES Module을 쓰기 때문에 `file://`로는 열 수 없고, 로컬 서버가 필요합니다.
 
 ## 동작 흐름
@@ -50,7 +51,7 @@ src/
   history.js     뒤로/앞으로 가기용 VNode 기록
   component.js   h, memo, FunctionComponent, useState, useEffect, useMemo, 이벤트 위임
 phase1/          Phase 1 검증 페이지
-app/             Phase 2 데모: App.js(컴포넌트) · main.js(mount + 인스펙터)
+phase2/          Phase 2 확인 페이지(임시): App.js(컴포넌트) · main.js(mount + 인스펙터)
 tests/           Vitest + jsdom 단위·통합·기능 테스트
 docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 ```
@@ -85,7 +86,7 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 ### DOM 변화 감지: MutationObserver
 
 - 실제 DOM이 바뀔 때마다 기록(MutationRecord)을 남기는 브라우저 API입니다.
-- 검증 페이지와 데모는 이것으로 "patch가 DOM을 몇 번 바꿨는지"를 세어 innerHTML 전체 교체와 비교합니다.
+- Phase 1·2 확인 페이지는 이것으로 "patch가 DOM을 몇 번 바꿨는지"를 세어 innerHTML 전체 교체와 비교합니다.
 - 예: 할 일 글자 하나와 제목 class만 바꿨을 때 바뀐 노드 수는 diff → patch 2개, innerHTML 전체 교체 26개입니다.
 
 ## Phase 2: Component, State, Hooks
@@ -142,7 +143,7 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 ### 3. Hooks 인스펙터
 
-- 데모 오른쪽에 hooks 배열(칸 번호, 종류, 값, deps)을 실시간으로 보여 주고, 이번 렌더에서 바뀐 칸을 표시합니다.
+- Phase 2 확인 페이지 오른쪽에 hooks 배열(칸 번호, 종류, 값, deps)을 실시간으로 보여 주고, 이번 렌더에서 바뀐 칸을 표시합니다.
 - 렌더 번호, 묶인 setState 수, memo로 건너뛴 자식 수, patch 종류별 개수, MutationRecord 수도 함께 보여 줍니다.
 - 인스펙터 자체도 미니 리액트로 그립니다.
 
@@ -172,7 +173,7 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 | `vdom` · `diff` · `patch` · `history` · `integration` · `edge` · `fixtures` · `editor` · `log` | Phase 1 엔진과 검증 페이지 (198개) |
 | `component.test.js` | h, useState, batching, 이벤트 위임, useEffect, useMemo, memo, hook 규칙, unmount (29개) |
 | `keyed.test.js` | key 재조정의 patch 개수와 노드 재사용, 무작위 300회 fuzz, LIS (14개) |
-| `app.test.js` | 데모 앱의 추가·체크·삭제·필터·batching·뒤집기·저장 (10개) |
+| `phase2.test.js` | Phase 2 확인 페이지(할 일 앱)의 추가·체크·삭제·필터·batching·뒤집기·저장 (10개) |
 
 ## 과제 요구사항 대응
 
@@ -181,9 +182,9 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 | DOM → VDOM 변환, diff 5가지 케이스, 바뀐 부분만 patch | `src/vdom.js`, `src/diff.js`, `src/patch.js` |
 | 실제 영역 · 테스트 영역 · Patch / 뒤로가기 / 앞으로가기 | `phase1/` |
 | 함수형 컴포넌트, `FunctionComponent`(hooks · mount · update) | `src/component.js` |
-| hook과 state는 루트에서만, 자식은 stateless | `app/App.js`, 위반 시 에러 (`component.test.js`) |
+| hook과 state는 루트에서만, 자식은 stateless | `phase2/App.js`, 위반 시 에러 (`component.test.js`) |
 | state 변경 시 VDOM → diff → patch 재사용 | `FunctionComponent.update()` |
 | `useState` · `useEffect` · `useMemo` | `src/component.js` |
 | Batching (선택) | `scheduleUpdate()` |
-| 데모 페이지: 입력·클릭에 따른 부분 업데이트 | `app/` |
+| 데모 페이지: 입력·클릭에 따른 부분 업데이트 | 최종 페이지는 별도 주제로 예정. 지금은 `phase2/` 확인 페이지에서 동작 확인 |
 | 모듈별 단위 테스트, 기능 테스트, 엣지 케이스 | `tests/` |

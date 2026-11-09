@@ -135,7 +135,7 @@ export class FunctionComponent {
     this.setStateCalls = 0; // 이번 렌더로 묶인 setState 횟수
     this.memoHits = 0; // 이번 렌더에서 memo로 건너뛴 자식 수
     this.renderCount = 0;
-    /** 렌더가 화면에 반영될 때마다 불린다. 데모의 Hooks 인스펙터가 쓴다 @type {((info: CommitInfo) => void) | null} */
+    /** 렌더가 화면에 반영될 때마다 불린다. Phase 2 확인 페이지의 Hooks 인스펙터가 쓴다 @type {((info: CommitInfo) => void) | null} */
     this.onCommit = null;
   }
 

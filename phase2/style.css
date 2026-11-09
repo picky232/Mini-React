@@ -1,4 +1,4 @@
-/* Phase 2 데모 전용. 색 토큰(--accent 등)은 phase1/style.css에서 온다 */
+/* Phase 2 확인 페이지 전용. 색 토큰(--accent 등)은 phase1/style.css에서 온다 */
 
 .chip-orange { --c: var(--orange); }
 
