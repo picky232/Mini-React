@@ -77,7 +77,13 @@
  *   test: HTMLElement,
  *   patchButton: HTMLButtonElement,
  *   undoButton: HTMLButtonElement,
- *   redoButton: HTMLButtonElement
+ *   redoButton: HTMLButtonElement,
+ *   status?: HTMLElement,
+ *   sourceView?: Readonly<{
+ *     toggle: HTMLButtonElement,
+ *     actualCode: HTMLTextAreaElement,
+ *     draftCode: HTMLTextAreaElement
+ *   }>
  * }>} DemoElements
  */
 

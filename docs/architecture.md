@@ -1,13 +1,13 @@
 # Phase 1 설계 계약
 
-현재 단계는 Stage 0이다. `src/core/contracts.js`는 JSDoc 타입만 제공하며 VNode 생성·변환, Diff, Patch, History 함수는 아직 구현하지 않았다. 아래 함수 시그니처는 이후 구현할 인터페이스다.
+`src/core/contracts.js`는 Phase 1의 JSDoc 데이터·함수 타입을 정의한다. 구현과 검증의 진행 상태는 `PLAN.md`를 참고한다.
 
 ## 최소 구조와 의존성
 
 ```text
 src/
   core/
-    contracts.js        # 현재 존재: 데이터·함수 타입의 단일 기준
+    contracts.js        # 데이터·함수 타입의 단일 기준
     vnode.js            # Stage 1: VNode 생성과 자식 정규화
     diff.js             # Stage 2: 순수 비교 → Patch 목록
     history.js          # Stage 4: 순수 이력 연산
@@ -15,14 +15,15 @@ src/
     from-dom.js         # Stage 1: DOM → VNode
     render.js           # Stage 1: VNode → 새 DOM
     patch.js            # Stage 3: 기존 DOM 부분 변경
+    events.js           # Stage 3: 렌더와 Patch의 리스너 기록 공유
   app/
     main.js             # Stage 5: 두 영역·버튼 연결
     style.css           # Stage 5
 index.html              # Stage 5: 실제 영역, 편집 영역, 세 버튼
 tests/
-  contracts/            # 현재 존재: JSDoc 정적 검사 fixture
-  unit/                 # 현재는 Node 환경 확인; 이후 기능별 테스트
-  integration/          # 현재는 jsdom 환경 확인; 이후 실제 모듈 연결 테스트
+  contracts/            # JSDoc 정적 검사 fixture
+  unit/                 # 순수 로직과 DOM 단위 테스트
+  integration/          # 엔진·이력·데모 통합 테스트
   setup.js              # DOM fixture 정리
 ```
 
@@ -101,14 +102,14 @@ tests/
 | core/history.js | `undo(history: History): History` | index 감소; 시작 경계에서는 기존 History 반환 |
 | core/history.js | `redo(history: History): History` | index 증가; 마지막 경계에서는 기존 History 반환 |
 | core/history.js | `getCurrent(history: History): Tree` | 현재 스냅샷 반환 |
-| app/main.js | `startDemo(elements: DemoElements): () => void` | 초기 동기화, 버튼 연결; 반환 함수는 이벤트 해제 |
+| app/main.js | `startDemo(elements: DemoElements): () => void` | 초기 동기화와 버튼 연결. `status`로 처리 결과 표시, `sourceView`로 화면·코드 전환. 반환 함수로 이벤트 해제 |
 
 형식 오류는 TypeError, 경로·이력 범위 오류는 RangeError로 구분한다. 구체적인 오류 메시지는 테스트 계약으로 고정하지 않는다. 타입 검사는 인덱스 범위·HTML 지원 여부·배치 순서까지 검증하지 않으므로 구현 단계의 런타임 검증과 테스트가 필요하다.
 
 ## 데모와 이력 흐름
 
 1. 시작: 실제 영역의 단일 루트 → VNode → History 생성 → 새 DOM을 테스트 영역에 렌더링한다.
-2. 편집: 테스트 영역의 루트 내부만 편집한다. 편집 중에는 실제 영역·History를 바꾸지 않는다.
+2. 편집: 테스트 영역에서 화면이나 HTML 코드를 편집한다. HTML은 분리된 template에서 파싱하며, 지원하지 않는 소스는 편집기에 남겨 수정할 수 있게 한다. 코드에서 화면으로 전환하면 테스트 영역만 갱신한다.
 3. Patch: 현재 저장 트리와 테스트 영역에서 읽은 트리를 비교한다. 실제 영역에 적용 성공한 뒤 History에 저장한다. 변경이 없으면 저장하지 않는다.
 4. Undo/Redo: 이동한 History의 스냅샷을 목표로 실제·테스트 두 영역 모두 Diff/Patch한다. 실제 영역은 저장된 현재 트리, 테스트 영역은 편집 DOM을 다시 읽은 트리를 각각 비교의 출발점으로 사용한다. 테스트 영역의 미반영 편집은 이때 버린다. 이력 이동 시 새 entry를 저장하지 않는다.
 5. Undo 후 Patch하면 미래 이력을 버린다. 이동 경계에서는 버튼을 비활성화하고 상태를 유지한다.
