@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createElement, domToVNode, containerToVNode, htmlToVNode, vnodeToHTML } from '../src/vdom.js';
+import { createElement, domToVNode, containerToVNode, htmlToVNode, vnodeToHTML, vnodeToPrettyHTML } from '../src/vdom.js';
+import { diff } from '../src/diff.js';
 import { el, text, root, CASES } from './fixtures.js';
 
 // Stage 0: createElement. Stage 1-A가 나머지 함수 테스트를 이 파일에 추가한다.
@@ -93,6 +94,19 @@ describe('vnodeToHTML', () => {
     expect(vnodeToHTML(v)).toBe('<p>a<br>b</p><img src="x.png">');
     expect(htmlToVNode(vnodeToHTML(v))).toEqual(v);
   });
+
+  it('style·script 안 텍스트는 이스케이프하지 않는다 (&gt;로 바뀌면 CSS가 깨짐)', () => {
+    for (const html of ['<style>a > b { content: "&" }</style>', '<script>if (a < b && c) {}</script>']) {
+      expect(vnodeToHTML(htmlToVNode(html))).toBe(html);
+    }
+  });
+
+  it('pre·textarea 첫 줄바꿈을 지킨다 (파서가 태그 바로 뒤 줄바꿈 하나를 버림)', () => {
+    for (const html of ['<pre>\n\nfoo</pre>', '<textarea>\n\nx</textarea>', '<pre>\nfoo</pre>']) {
+      const v = htmlToVNode(html);
+      expect(htmlToVNode(vnodeToHTML(v))).toEqual(v);
+    }
+  });
 });
 
 describe('왕복', () => {
@@ -106,6 +120,47 @@ describe('왕복', () => {
         expect(rebuilt.isEqualNode(box(vnodeToHTML(v)))).toBe(true);
         expect(htmlToVNode(vnodeToHTML(v))).toEqual(v);
       }
+    });
+  }
+});
+
+describe('vnodeToPrettyHTML', () => {
+  const SAMPLE = '<h3 class="title">오늘 할 일</h3><ul class="todo"><li class="done">장보기</li><li>운동 &amp; 스트레칭</li></ul><p>링크: <a href="https://example.com">예시</a></p>';
+
+  it('자식이 전부 엘리먼트면 줄을 바꿔 들여쓰고, 텍스트가 섞이면 한 줄로 둔다', () => {
+    expect(vnodeToPrettyHTML(htmlToVNode(SAMPLE))).toBe([
+      '<h3 class="title">오늘 할 일</h3>',
+      '<ul class="todo">',
+      '  <li class="done">장보기</li>',
+      '  <li>운동 &amp; 스트레칭</li>',
+      '</ul>',
+      '<p>링크: <a href="https://example.com">예시</a></p>',
+    ].join('\n'));
+  });
+
+  it('여러 단계 중첩은 단계마다 두 칸씩 들여쓴다', () => {
+    expect(vnodeToPrettyHTML(htmlToVNode('<div><ul><li>a</li></ul></div>'))).toBe('<div>\n  <ul>\n    <li>a</li>\n  </ul>\n</div>');
+  });
+
+  it('루트에 텍스트가 섞이면 루트도 한 줄로 둔다', () => {
+    expect(vnodeToPrettyHTML(htmlToVNode('hi<b>x</b>'))).toBe('hi<b>x</b>');
+  });
+
+  // 들여쓰기로 생긴 공백이 VNode에 남으면 아무것도 안 고치고 Patch를 눌러도 가짜 patch가 생긴다
+  const inputs = [
+    SAMPLE,
+    '<pre><b>a</b><i>b</i></pre>',
+    '<style>a > b {}</style><script>if (a < b) {}</script>',
+    '<table><tbody><tr><td>1</td></tr></tbody></table>',
+    '<p><br><img src="x.png"></p>',
+    ...CASES.flatMap((c) => [c.before, c.after]),
+  ];
+  for (const html of inputs) {
+    it(`다시 읽으면 같은 VNode, diff 없음: ${html.slice(0, 40)}`, () => {
+      const v = htmlToVNode(html);
+      const again = htmlToVNode(vnodeToPrettyHTML(v));
+      expect(again).toEqual(v);
+      expect(diff(v, again)).toEqual([]);
     });
   }
 });

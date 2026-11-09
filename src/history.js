@@ -14,8 +14,9 @@
  * }}
  */
 export function createHistory(initial) {
+  // 매 시점의 VNode 트리를 통째로 저장한다 (patch 목록이 아니라 스냅샷이라 아무 시점으로나 diff할 수 있음)
   const stack = [initial];
-  let index = 0;
+  let index = 0; // 지금 화면에 반영된 VNode의 위치
 
   const canBack = () => index > 0;
   const canForward = () => index < stack.length - 1;

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>클릭에서 화면까지</title>
+<script>
+  // 저장된 테마를 그리기 전에 적용 (깜빡임 방지)
+  try { const t = localStorage.getItem('sv-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  /* ===== 토큰 (style-guide.md 2·3장) — 페이지마다 바꾸지 않는다 ===== */
+  :root{
+    color-scheme: dark;
+    --bg:#0f1115; --surface:#171a21; --surface-2:#1f232c; --border:#2c313c;
+    --text:#e8eaef; --text-2:#aab1be; --text-3:#8a92a1;
+    --accent:#8b9bff; --on-accent:#0b0d12;
+    --role-a:#38bdf8; --role-b:#34d399; --data:#fbbf24; --warn:#f87171;
+    --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:#f6f7f9; --surface:#ffffff; --surface-2:#f0f2f5; --border:#dde1e7;
+    --text:#1a1d23; --text-2:#4b5260; --text-3:#5c6370;
+    --accent:#4338ca; --on-accent:#ffffff;
+    --role-a:#075985; --role-b:#065f46; --data:#854d0e; --warn:#b91c1c;
+  }
+
+  /* ===== 기본 ===== */
+  *,*::before,*::after{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:400 15px/1.65 var(--font);
+    word-break:keep-all; overflow-wrap:anywhere;
+    transition:background .2s,color .2s;
+  }
+  a{color:var(--accent);}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px;}
+  section{margin:56px 0;}
+  h1,h2,h3{line-height:1.3;margin:0;}
+  h1{font-size:32px;letter-spacing:-.01em;margin:8px 0 12px;}
+  h2{font-size:24px;margin-bottom:8px;}
+  h3{font-size:17px;margin-bottom:8px;}
+  p{margin:0 0 12px;}
+  .kicker{font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--accent);}
+  .lead{font-size:17px;color:var(--text-2);max-width:68ch;}
+  .sec-desc{color:var(--text-2);max-width:68ch;margin-bottom:20px;}
+  .muted{color:var(--text-3);}
+  .small{font-size:13px;}
+  b,strong{font-weight:700;}
+
+  /* ===== 상단 바 + 테마 토글 ===== */
+  .topbar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;}
+  .topbar-title{font-size:13px;font-weight:700;color:var(--text-2);min-width:0;}
+
+  /* ===== 레이아웃 ===== */
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .grid>*,.row>*{min-width:0;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;min-width:0;}
+  .card>:last-child{margin-bottom:0;}
+
+  /* ===== 칩 · 콜아웃 ===== */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;line-height:1.5;padding:2px 10px;border-radius:999px;white-space:nowrap;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);}
+  .chip.a{color:var(--role-a);background:color-mix(in srgb,var(--role-a) 14%,transparent);border-color:color-mix(in srgb,var(--role-a) 35%,transparent);}
+  .chip.b{color:var(--role-b);background:color-mix(in srgb,var(--role-b) 14%,transparent);border-color:color-mix(in srgb,var(--role-b) 35%,transparent);}
+  .chip.data{color:var(--data);background:color-mix(in srgb,var(--data) 14%,transparent);border-color:color-mix(in srgb,var(--data) 35%,transparent);}
+  .chip.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);border-color:color-mix(in srgb,var(--warn) 35%,transparent);}
+  .callout{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:8px;padding:14px 16px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));}
+  .callout.warn{border-left-color:var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--surface));}
+
+  /* ===== 코드 · 표 ===== */
+  code{font-family:var(--mono);font-size:.9em;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;}
+  pre.code{margin:0;padding:12px 0;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font:13px/1.7 var(--mono);}
+  pre.code .ln{display:block;padding:0 16px 0 28px;text-indent:-12px;white-space:pre-wrap;border-left:3px solid transparent;}
+  pre.code .ln.hl{background:color-mix(in srgb,var(--data) 16%,transparent);border-left-color:var(--data);}
+  pre.code .cm{color:var(--text-3);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{font-size:13px;color:var(--text-3);background:var(--surface-2);}
+  tr:last-child td{border-bottom:0;}
+
+  /* ===== 버튼 · 진행 바 ===== */
+  button{font:inherit;font-size:14px;font-weight:600;line-height:1.4;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;transition:border-color .2s,background .2s;}
+  button:hover:not(:disabled){border-color:var(--text-3);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);}
+  button.ghost{background:transparent;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .progress{height:4px;background:var(--surface-2);border-radius:999px;overflow:hidden;}
+  .progress>i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s;}
+
+  /* ===== 단계형 설명 ===== */
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .step-count{font-size:13px;color:var(--text-3);font-variant-numeric:tabular-nums;margin-left:auto;}
+  .phases{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0;}
+  .phases button{font-size:13px;padding:4px 12px;border-radius:999px;}
+  .phases button.on{border-color:var(--accent);color:var(--accent);}
+  .explain{display:grid;grid-template-columns:72px 1fr;gap:8px 12px;margin:16px 0;}
+  .explain dt{font-size:13px;font-weight:700;color:var(--text-3);padding-top:2px;}
+  .explain dd{margin:0;}
+  .explain dt.ifnot{color:var(--warn);}
+  @media (max-width:520px){ .explain{grid-template-columns:1fr;gap:2px;} .explain dd{margin-bottom:10px;} }
+  .changed{animation:flash .8s ease;}
+  @keyframes flash{0%{box-shadow:0 0 0 3px var(--data);}100%{box-shadow:0 0 0 0 transparent;}}
+
+  /* ===== 확인 질문 ===== */
+  details.quiz{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;}
+  details.quiz+details.quiz{margin-top:8px;}
+  details.quiz summary{cursor:pointer;font-weight:600;}
+  details.quiz[open] summary{margin-bottom:8px;}
+  .summary-list{margin:0;padding-left:20px;}
+  .summary-list li+li{margin-top:6px;}
+  footer{border-top:1px solid var(--border);padding:24px 0 48px;color:var(--text-3);font-size:13px;}
+
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important;} }
+
+  /* ===== 페이지 전용 ===== */
+  /* 큰 그림 흐름도 */
+  .flow{display:flex;align-items:stretch;gap:8px;}
+  .flow-node{flex:1 1 0;min-width:0;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+  .flow-node .t{font-weight:700;}
+  .flow-node .d{font-size:13px;color:var(--text-2);margin-top:4px;}
+  .flow-node.a{border-color:color-mix(in srgb,var(--role-a) 50%,transparent);}
+  .flow-node.a .t{color:var(--role-a);}
+  .flow-node.b{border-color:color-mix(in srgb,var(--role-b) 50%,transparent);}
+  .flow-node.b .t{color:var(--role-b);}
+  .flow-arrow{flex:0 0 auto;align-self:center;color:var(--text-3);font-weight:700;}
+  .flow-arrow::before{content:"→";}
+  @media (max-width:760px){ .flow{flex-direction:column;} .flow-arrow{text-align:center;} .flow-arrow::before{content:"↓";} }
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .vs{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));margin-bottom:16px;}
+  .vs>*{min-width:0;}
+
+  /* 비유 대응표 */
+  .map{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);}
+  .map-row{display:grid;grid-template-columns:180px minmax(0,1fr) minmax(0,1.3fr);gap:16px;padding:12px 20px;border-top:1px solid var(--border);align-items:start;}
+  .map-row>*{min-width:0;}
+  .map-head{background:var(--surface-2);font-size:13px;font-weight:700;color:var(--text-3);border-top:0;padding:10px 20px;}
+  .map-ana{font-weight:600;}
+  .map-real{color:var(--text-2);}
+  @media (max-width:760px){
+    .map-row{grid-template-columns:1fr;gap:4px;}
+    .map-head{display:none;}
+    .map-ana::before{content:"비유 · ";color:var(--text-3);font-weight:700;}
+    .map-real::before{content:"실제 · ";color:var(--text-3);font-weight:700;}
+  }
+
+  /* 시뮬레이터: 한 화면에 설명 + 패널 3열 */
+  .wrap.wide{max-width:1440px;}
+  .ctl-bar{position:sticky;top:53px;z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:12px;box-shadow:0 4px 16px color-mix(in srgb,var(--bg) 70%,transparent);}
+  .ctl-bar .controls button{padding:6px 12px;}
+  /* 흐름 지도 (phase 버튼을 화살표로 잇는다) */
+  .phases{align-items:center;gap:4px;}
+  .phases button.past{color:var(--text-3);}
+  .phases button.past::before{content:"✓ ";}
+  .phases button.on{background:color-mix(in srgb,var(--accent) 16%,var(--surface-2));animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent);}}
+  .fm-ar{color:var(--text-3);font-weight:700;}
+  @media (max-width:760px){ .phases{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;} .phases>*{flex:0 0 auto;} }
+  .sim-grid{display:grid;gap:12px;grid-template-columns:minmax(0,1fr);align-items:start;}
+  @media (min-width:1200px){
+    .sim-grid{grid-template-columns:330px minmax(0,1fr);}
+    /* 패널과 같이 한 화면에 들어오도록: 상단 바(53) + 컨트롤 바(약 115) + 여백 아래로 높이를 묶고 안에서 스크롤 */
+    .explain-card{position:sticky;top:180px;max-height:calc(100vh - 192px);overflow-y:auto;}
+  }
+  @media (min-width:1200px) and (max-width:1399px){ .sim-grid{grid-template-columns:280px minmax(0,1fr);} }
+  .explain-card{padding:16px;}
+  .explain-card h3{margin:0 0 8px;}
+  .explain-card .explain{grid-template-columns:1fr;gap:2px;margin:12px 0;}
+  .explain-card .explain dd{margin-bottom:8px;}
+  .delta{display:flex;flex-wrap:wrap;gap:6px;}
+  .dc{display:inline-block;font-size:13px;font-weight:700;line-height:1.5;padding:2px 10px;border-radius:999px;color:var(--data);background:color-mix(in srgb,var(--data) 14%,transparent);border:1px solid color-mix(in srgb,var(--data) 35%,transparent);}
+  .stage{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;}
+  @media (max-width:1000px){ .stage{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media (max-width:640px){ .stage{grid-template-columns:minmax(0,1fr);} }
+  .col{display:grid;gap:12px;align-content:start;min-width:0;}
+  .stage .card{padding:14px;}
+  .panel{border-top:3px solid var(--pc,var(--border));}
+  .enter{animation:enter .45s ease;}
+  @keyframes enter{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+  .panel.browser{--pc:var(--role-a);}
+  .panel.fw{--pc:var(--role-b);}
+  .p-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .p-name{font-size:17px;font-weight:700;color:var(--pc);}
+  .box-title{font-size:13px;font-weight:700;color:var(--text-3);margin-bottom:8px;}
+  .empty{color:var(--text-3);font-size:13px;}
+
+  /* 이벤트 루프 */
+  .loop{display:grid;gap:8px;}
+  .lane{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px;align-items:start;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;min-width:0;}
+  .lane-n{font-size:13px;font-weight:700;color:var(--text-3);}
+  .lane-items{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;}
+  .qi{max-width:100%;font:13px/1.5 var(--mono);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;}
+  .qi.top{border-color:var(--role-b);color:var(--role-b);font-weight:700;}
+  .qi.mq,.qi.tq{border-style:dashed;}
+
+  /* hooks */
+  .hooks{display:grid;gap:8px;}
+  .hook{display:grid;grid-template-columns:36px minmax(0,1fr);gap:2px 8px;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;transition:background .3s,border-color .3s;}
+  .hook.ptr{border-color:var(--role-b);background:color-mix(in srgb,var(--role-b) 10%,var(--surface-2));}
+  .hk-i{font:700 15px/1.4 var(--mono);color:var(--role-b);grid-row:span 2;}
+  .hk-n{font-size:13px;color:var(--text-3);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .hk-v{font:13px/1.5 var(--mono);}
+  .hk-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;font:13px/1.5 var(--mono);}
+
+  /* 트리 (VDOM · 실제 DOM) */
+  .tree{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;min-height:60px;}
+  .tn{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center;padding:1px 6px 1px calc(6px + var(--d) * 14px);border-radius:6px;font:13px/1.5 var(--mono);border:1px solid transparent;}
+  .tn .chip{line-height:1.3;padding:1px 8px;}
+  .tn .lbl{min-width:0;}
+  .tn .tg{color:var(--role-b);}
+  .tn .at{color:var(--text-2);}
+  .tn .av{color:var(--text);}
+  .tn .tx{color:var(--text);}
+  .tn.mk{background:color-mix(in srgb,var(--data) 12%,transparent);}
+  .tn.cur{border-color:var(--accent);}
+  .tn.added{border:1px dashed var(--data);}
+  .tn s{color:var(--text-3);}
+  .tn .nw{color:var(--data);font-weight:700;}
+  .doc-title{font:13px/1.5 var(--mono);margin-top:12px;}
+  .mo{margin-top:12px;border:1px dashed var(--border);border-radius:8px;padding:10px 12px;}
+  .mo .qi{border-color:color-mix(in srgb,var(--role-a) 45%,var(--border));}
+
+  /* 렌더링 파이프라인 */
+  .pipe{display:grid;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr));}
+  .pp{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:4px 6px;text-align:center;transition:background .3s,border-color .3s;}
+  .pp-n{display:block;font-size:13px;font-weight:700;}
+  .pp-s{display:block;font-size:13px;color:var(--text-3);}
+  .pp.done{border-color:color-mix(in srgb,var(--role-a) 55%,transparent);}
+  .pp.done .pp-s{color:var(--role-a);}
+  .pp.dirty{border-color:var(--data);background:color-mix(in srgb,var(--data) 12%,var(--surface-2));}
+  .pp.dirty .pp-s{color:var(--data);}
+  .pipe-note{font-size:13px;color:var(--text-2);margin:8px 0 0;}
+
+  /* 화면 미리보기 */
+  .screen{margin-top:12px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .screen-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 10px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:13px;color:var(--text-3);}
+  .screen-body{padding:10px 12px;background:var(--bg);}
+  .tab-title{font:13px/1.5 var(--mono);color:var(--text);background:var(--bg);border:1px solid var(--border);border-bottom:0;border-radius:6px 6px 0 0;padding:0 8px;}
+  .ap-count{transition:color .4s;}
+  .ap-row{display:flex;gap:8px;}
+  .ap-input{flex:1 1 auto;min-width:0;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);}
+  .ap-input .ph{color:var(--text-3);}
+  .ap-btn{flex:0 0 auto;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:4px 12px;font-weight:700;}
+  .ap-count{margin-top:10px;font-weight:700;color:var(--text-2);}
+  .ap-count.busy{color:var(--data);}
+  .ap-list{margin:6px 0 0;padding-left:20px;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <span class="topbar-title">StudyVisualization · 브라우저와 미니 리액트</span>
+    <button id="themeBtn" class="ghost" type="button"></button>
+  </div>
+</header>
+
+<main>
+ <div class="wrap">
+  <section>
+    <div class="kicker">브라우저 동작 · 프론트엔드 프레임워크</div>
+    <h1>클릭에서 화면까지: 브라우저와 미니 리액트가 함께 일하는 순서</h1>
+    <p class="lead">버튼 한 번을 누르면 이벤트 루프, setState, hooks 배열, Virtual DOM, diff, patch, Layout·Paint가 차례로 움직인다. 이 페이지는 할 일 앱의 [추가] 클릭 하나를 처음부터 끝까지 따라가며, 각 단계에서 무엇이 왜 바뀌는지 보여준다.</p>
+  </section>
+
+  <section>
+    <h2>왜 필요할까</h2>
+    <p class="sec-desc">바닐라 JS로 화면을 만들면 상태가 바뀔 때마다 관련된 DOM을 사람이 직접 찾아 고쳐야 한다. 고칠 곳을 하나만 빠뜨려도 상태와 화면이 어긋난다. 프레임워크는 "상태만 바꾸면 화면은 알아서 맞춘다"는 약속(선언형, UI = f(state))으로 이 문제를 없앤다.</p>
+    <div class="vs">
+      <div>
+        <div class="box-title">명령형 (바닐라): 어떻게 고칠지 내가 쓴다</div>
+        <pre class="code"><span class="ln">todos.push(text);</span><span class="ln">ul.appendChild(makeLi(text));   <span class="cm">// 1. 목록에 추가</span></span><span class="ln">countEl.textContent = todos.length + '개'; <span class="cm">// 2. 개수 갱신</span></span><span class="ln">input.value = '';               <span class="cm">// 3. 입력창 비우기</span></span><span class="ln"><span class="cm">// 하나라도 빠뜨리면 화면과 상태가 어긋난다</span></span></pre>
+      </div>
+      <div>
+        <div class="box-title">선언형 (프레임워크): 결과만 쓴다</div>
+        <pre class="code"><span class="ln">setTodos([...todos, text]);</span><span class="ln">setText('');</span><span class="ln"><span class="cm">// 화면 모양은 App()의 return이 정한다</span></span><span class="ln"><span class="cm">// 무엇을 고칠지는 diff가 찾는다</span></span></pre>
+      </div>
+    </div>
+    <div class="card">
+      <div class="box-title">큰 그림: 클릭 하나가 지나가는 길</div>
+      <div class="flow">
+        <div class="flow-node a"><div class="t">클릭</div><div class="d">이벤트 루프가 핸들러를 실행</div></div>
+        <div class="flow-arrow" aria-hidden="true"></div>
+        <div class="flow-node b"><div class="t">setState</div><div class="d">값 저장 + 리렌더 예약</div></div>
+        <div class="flow-arrow" aria-hidden="true"></div>
+        <div class="flow-node b"><div class="t">새 VDOM</div><div class="d">App() 재실행</div></div>
+        <div class="flow-arrow" aria-hidden="true"></div>
+        <div class="flow-node b"><div class="t">diff · patch</div><div class="d">바뀐 곳만 DOM에 반영</div></div>
+        <div class="flow-arrow" aria-hidden="true"></div>
+        <div class="flow-node a"><div class="t">Layout · Paint</div><div class="d">브라우저가 픽셀을 그림</div></div>
+      </div>
+      <div class="legend"><span class="chip a">브라우저가 하는 일</span><span class="chip b">미니 리액트가 하는 일</span><span class="chip data">이번 단계에서 바뀐 것</span></div>
+    </div>
+    <h3 style="margin-top:24px">DOM 조작이 느린 진짜 이유</h3>
+    <p class="sec-desc">DOM API를 부르는 것보다, 그 뒤에 브라우저가 다시 해야 하는 계산이 비싸다.</p>
+    <div class="table-wrap"><table>
+      <tr><th>무엇을 바꾸면</th><th>브라우저가 다시 하는 일</th><th>예시</th></tr>
+      <tr><td>크기·위치·구조</td><td><b>Reflow(Layout)</b>: 위치·크기를 다시 계산하고, 그 뒤 Paint까지 한다. 부모·형제에게도 번질 수 있다.</td><td><code>width</code>, <code>margin</code>, 노드 추가·삭제, 글자 내용</td></tr>
+      <tr><td>겉모습만</td><td><b>Repaint(Paint)</b>: 위치는 그대로 두고 픽셀만 다시 칠한다.</td><td><code>color</code>, <code>background</code></td></tr>
+      <tr><td>합성 속성</td><td><b>Composite</b>만: 이미 칠한 레이어를 GPU가 옮기거나 투명도만 바꾼다.</td><td><code>transform</code>, <code>opacity</code></td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>비유: 집 리모델링</h2>
+    <p class="sec-desc">집주인(사용자)의 요청을 받아 설계도를 고치고, 바뀐 곳만 공사하는 리모델링 회사로 생각하면 흐름이 한 줄로 이어진다.</p>
+    <div class="map">
+      <div class="map-row map-head"><div>개념</div><div>비유</div><div>실제로 하는 일</div></div>
+      <div class="map-row"><div><code>setState</code></div><div class="map-ana">요청서 접수 + 공사 날짜 잡기</div><div class="map-real">hooks 배열에 값을 저장하고 리렌더를 예약한다.</div></div>
+      <div class="map-row"><div>Batching</div><div class="map-ana">요청서 여러 장을 모아 공사는 한 번</div><div class="map-real">같은 작업 안의 setState를 모아 렌더를 한 번만 한다.</div></div>
+      <div class="map-row"><div><code>hooks</code> 배열</div><div class="map-ana">번호가 붙은 서랍장</div><div class="map-real">몇 번째로 불린 hook인지(인덱스)로 상태를 찾는다.</div></div>
+      <div class="map-row"><div>Virtual DOM</div><div class="map-ana">종이 설계도</div><div class="map-real">DOM 모양을 흉내 낸 JS 객체. 고쳐 그려도 실제 집은 그대로다.</div></div>
+      <div class="map-row"><div>diff</div><div class="map-ana">옛 설계도와 새 설계도를 겹쳐 보기</div><div class="map-real">두 VDOM을 비교해 바뀐 곳 목록을 만든다.</div></div>
+      <div class="map-row"><div>patch</div><div class="map-ana">표시한 곳만 공사</div><div class="map-real">변경 목록만 실제 DOM API로 고친다.</div></div>
+      <div class="map-row"><div>Reflow / Repaint</div><div class="map-ana">벽을 옮겨 치수 다시 재기 / 벽지만 새로 바르기</div><div class="map-real">위치·크기 재계산 / 픽셀만 다시 칠하기.</div></div>
+      <div class="map-row"><div>MutationObserver</div><div class="map-ana">공사 기록 일지 (공사가 끝나면 한 번에 받음)</div><div class="map-real">DOM 변경 기록을 모아 마이크로태스크로 한꺼번에 전달한다.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>구성 요소</h2>
+    <p class="sec-desc">아래 시뮬레이터에 나오는 칸들이다. 파란색은 브라우저, 초록색은 미니 리액트의 것이다.</p>
+    <div class="grid">
+      <div class="card"><h3><span class="chip a">브라우저</span> 이벤트 루프</h3><p>메인 스레드는 한 번에 하나만 실행한다. <b>콜 스택</b>(지금 실행 중인 함수들)이 비면 <b>마이크로태스크 큐</b>(Promise, queueMicrotask, MutationObserver)를 전부 비우고, 그다음 화면을 그릴 기회를 갖고, 그다음 <b>태스크 큐</b>(클릭, setTimeout)에서 하나를 꺼낸다.</p></div>
+      <div class="card"><h3><span class="chip b">미니 리액트</span> hooks 배열</h3><p>컴포넌트 인스턴스에 붙은 배열이다. App 함수는 매번 새로 실행되지만 이 배열은 남아 있다. <code>hookIndex</code>가 0부터 하나씩 올라가며 "몇 번째 hook인가"로 칸을 찾는다.</p></div>
+      <div class="card"><h3><span class="chip b">미니 리액트</span> VDOM과 diff</h3><p><code>{ type, props, children }</code> 모양의 JS 객체 트리다. diff는 두 트리를 같은 위치끼리 비교해 <b>추가 / 삭제 / 타입 교체 / 텍스트 변경 / 속성 변경</b> 중 하나로 기록한다.</p></div>
+      <div class="card"><h3><span class="chip a">브라우저</span> 실제 DOM과 렌더링 파이프라인</h3><p>DOM이 바뀌어도 바로 픽셀이 되지 않는다. <b>Render Tree → Layout → Paint → Composite</b>를 거쳐야 화면에 보인다. 이 계산은 JS가 끝난 뒤 한 번에 한다.</p></div>
+    </div>
+    <h3 style="margin-top:24px">이번 시나리오의 App 코드</h3>
+    <p class="sec-desc">사용자가 입력창에 '빨래'를 적어 둔 상태에서 [추가]를 누른다고 가정한다. 초기값을 '빨래'로 두어 이 상황을 만든다.</p>
+    <pre class="code" id="appCode"></pre>
+  </section>
+
+ </div>
+  <section class="wrap wide">
+    <h2>단계별로 따라가기</h2>
+    <p class="sec-desc">← → 키로도 넘길 수 있다. 위의 흐름 지도가 지금 어디인지 보여주고, 누르면 그 구간으로 바로 간다. 이번 단계에서 바뀐 칸은 노란 테두리로 깜빡이고, 설명 위 노란 칩에 바뀐 것이 요약된다.</p>
+    <div class="ctl-bar">
+      <div class="controls">
+        <button id="btnFirst" type="button">⏮ 처음</button>
+        <button id="btnPrev" type="button">◀ 이전</button>
+        <button id="btnPlay" type="button" class="primary">▶ 자동재생</button>
+        <button id="btnNext" type="button">다음 ▶</button>
+        <span class="step-count" id="stepCount"></span>
+      </div>
+      <div class="progress" style="margin-top:10px"><i id="progressBar"></i></div>
+      <div class="phases" id="phases" aria-label="흐름 지도"></div>
+    </div>
+    <div class="sim-grid">
+      <div class="card explain-card">
+        <h3 id="stepTitle"></h3>
+        <div class="delta" id="delta"></div>
+        <dl class="explain" id="explain"></dl>
+        <pre class="code" id="stepCode"></pre>
+      </div>
+      <div id="stage" class="stage"></div>
+    </div>
+  </section>
+ <div class="wrap">
+
+  <section>
+    <h2>헷갈리는 점</h2>
+    <div class="grid">
+      <div class="card"><h3>setTodos 바로 다음 줄에서 todos를 찍으면 왜 옛 값일까?</h3><p>setState는 hooks 배열의 값을 바꿀 뿐이다. 지금 실행 중인 App()의 지역 변수 <code>todos</code>는 이번 렌더가 시작될 때 꺼내 온 값이라 그대로다. 새 값은 다음 렌더에서 useState가 hooks 배열을 다시 읽을 때 보인다.</p></div>
+      <div class="card"><h3>patch가 끝났는데 왜 화면이 아직 그대로일까?</h3><p>DOM이 바뀐 것과 픽셀이 바뀐 것은 다르다. 브라우저는 JS가 실행되는 동안 그리지 않는다. 콜 스택과 마이크로태스크 큐가 모두 빈 뒤 다음 프레임에서 Layout·Paint를 한 번에 한다.</p></div>
+      <div class="card"><h3>input의 value 변경은 왜 MutationObserver에 안 잡힐까?</h3><p><code>input.value</code>는 JS 속성(property)이다. DOM 트리의 속성(attribute)이 바뀌지 않으므로 기록이 생기지 않는다. <code>setAttribute('value', …)</code>로 바꾸면 기록은 생기지만, 사용자가 이미 타이핑한 입력창의 글자는 바뀌지 않는다.</p></div>
+      <div class="card"><h3>VDOM이면 항상 직접 DOM을 고치는 것보다 빠를까?</h3><p>아니다. 바뀔 곳을 정확히 아는 명령형 코드가 가장 빠르다. VDOM은 VDOM 생성과 diff 비용을 더 낸다. 대신 "어디를 고칠지"를 사람이 신경 쓰지 않아도 되면서 충분히 빠르게 해 준다.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>핵심 정리</h2>
+    <div class="card"><ul class="summary-list">
+      <li>setState는 값을 hooks 배열에 저장하고 리렌더를 <b>예약</b>한다. 바로 그리지 않아서 여러 setState가 한 번의 렌더로 묶인다.</li>
+      <li>함수는 매번 새로 실행되지만 상태는 함수 밖 hooks 배열에 있고, <b>호출 순서</b>로 찾는다. 그래서 hook은 조건문 안에 두면 안 된다.</li>
+      <li>diff로 고른 곳만 patch하면 브라우저가 다시 계산할 범위가 줄어든다. 픽셀은 JS가 끝난 뒤 Layout·Paint를 거쳐 한 번에 바뀐다.</li>
+    </ul></div>
+    <h3 style="margin-top:24px">확인 질문</h3>
+    <details class="quiz"><summary>같은 핸들러에서 setState를 3번 부르면 App()은 몇 번 실행될까?</summary><p>한 번이다. 첫 setState가 update()를 마이크로태스크로 예약하고, 나머지는 scheduled 플래그를 보고 예약을 건너뛴다. 핸들러가 끝난 뒤 update()가 한 번 실행된다.</p></details>
+    <details class="quiz"><summary>목록 맨 앞에 '빨래'를 넣으면 인덱스 기반 diff는 무엇을 기록할까?</summary><p>li 세 개가 모두 한 칸씩 밀려 비교된다. 앞의 두 li는 '텍스트 변경', 마지막 자리는 '추가'로 기록된다. 실제로는 노드 하나만 끼워 넣으면 되는 일이다. 실제 React는 key로 같은 항목을 찾아 이동만 한다.</p></details>
+    <details class="quiz"><summary>patch 도중에 <code>ul.offsetHeight</code>를 읽으면 무슨 일이 생길까?</summary><p>브라우저는 정확한 높이를 돌려줘야 하므로, 모아 두었던 변경을 그 자리에서 반영해 Layout을 강제로 실행한다(강제 동기 레이아웃). 읽기와 쓰기를 번갈아 반복하면 Layout이 여러 번 일어난다(Layout Thrashing).</p></details>
+    <details class="quiz"><summary>useState의 초기값 '빨래'는 두 번째 렌더에서 왜 무시될까?</summary><p>useState는 hooks[i]가 비어 있을 때만 초기값을 쓴다. 두 번째 렌더에서는 hooks[0]에 이미 값('')이 있어서 그 값을 돌려준다.</p></details>
+  </section>
+ </div>
+</main>
+
+<footer><div class="wrap">
+  출처: 이 세션의 "브라우저 동작 → 프론트엔드 프레임워크" 설명 ·
+  <a href="https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model">HTML 표준: 이벤트 루프 처리 모델</a> ·
+  <a href="https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver">MDN: MutationObserver</a> ·
+  <a href="https://developer.mozilla.org/en-US/docs/Web/Performance/Critical_rendering_path">MDN: Critical rendering path</a> ·
+  <a href="https://react.dev/learn/queueing-a-series-of-state-updates">React: state 업데이트 큐(batching)</a> ·
+  <a href="https://github.com/facebook/react/commit/7bac7607a">React 18 커밋: 입력 이벤트로 생긴 effect를 동기로 실행</a> ·
+  <a href="https://lists.w3.org/Archives/Public/public-webapps-github/2024Dec/0483.html">W3C 논의: input.value는 MutationObserver로 관찰되지 않음</a>
+</div></footer>
+
+<script>
+/* ===== 테마 토글 ===== */
+const themeBtn = document.getElementById('themeBtn');
+function paintThemeBtn(){
+  const dark = document.documentElement.dataset.theme !== 'light';
+  themeBtn.textContent = dark ? '☀ 라이트' : '☾ 다크';
+  themeBtn.setAttribute('aria-label', dark ? '라이트 모드로 전환' : '다크 모드로 전환');
+}
+themeBtn.onclick = () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('sv-theme', next); } catch (e) {}
+  paintThemeBtn();
+};
+paintThemeBtn();
+
+/* ===== VDOM과 diff: 그림에 쓰는 값을 실제로 계산한다 ===== */
+const h = (type, props, ...children) =>
+  ({ type, props: props || {}, children: children.map(c => typeof c === 'string' ? { text: c } : c) });
+const view = (text, todos) => h('div', { id: 'app' },
+  h('input', { value: text }),
+  h('button', {}, '추가'),
+  h('p', { class: todos.length >= 3 ? 'count busy' : 'count' }, `${todos.length}개`),
+  h('ul', {}, ...todos.map(t => h('li', {}, t))));
+
+const isText = n => n && n.text !== undefined;
+function diff(a, b, path = '0', out = []) {
+  if (!a) { out.push({ path, kind: 'add', node: b.type || '텍스트', detail: `<${b.type}> 새로 만들어 붙이기` }); return out; }
+  if (!b) { out.push({ path, kind: 'remove', node: a.type || '텍스트', detail: '노드 떼어내기' }); return out; }
+  if (isText(a) && isText(b)) { if (a.text !== b.text) out.push({ path, kind: 'text', node: '텍스트', from: a.text, to: b.text, detail: `"${a.text}" → "${b.text}"` }); return out; }
+  if (isText(a) || isText(b) || a.type !== b.type) { out.push({ path, kind: 'replace', node: b.type || '텍스트', detail: '통째로 교체' }); return out; }
+  for (const k of new Set([...Object.keys(a.props), ...Object.keys(b.props)]))
+    if (a.props[k] !== b.props[k]) out.push({ path, kind: 'prop', node: a.type, key: k, from: a.props[k] ?? '', to: b.props[k] ?? '', detail: `${k}: "${a.props[k] ?? ''}" → "${b.props[k] ?? ''}"` });
+  for (let i = 0; i < Math.max(a.children.length, b.children.length); i++) diff(a.children[i], b.children[i], `${path}.${i}`, out);
+  return out;
+}
+const V0 = view('빨래', ['장보기', '청소']);
+const V1 = view('', ['장보기', '청소', '빨래']);
+const DIFFS = diff(V0, V1);
+console.assert(JSON.stringify(DIFFS.map(d => d.kind + '@' + d.path)) === JSON.stringify(['prop@0.0', 'prop@0.2', 'text@0.2.0', 'add@0.3.2']), 'diff 결과가 그림과 다르다', DIFFS);
+const KIND = { add: '추가', remove: '삭제', replace: '교체', text: '텍스트 변경', prop: '속성 변경' };
+const diffsAt = paths => DIFFS.filter(d => paths.includes(d.path));
+
+const APP_CODE = [
+  "function App() {",
+  "  const [text, setText]   = useState('빨래');             // hooks[0]",
+  "  const [todos, setTodos] = useState(['장보기', '청소']);  // hooks[1]",
+  "  useEffect(() => { document.title = `할 일 ${todos.length}개`; },",
+  "            [todos.length]);                              // hooks[2]",
+  "  const add = () => { setTodos([...todos, text]); setText(''); };",
+  "  return h('div', { id: 'app' },",
+  "    h('input', { value: text }),",
+  "    h('button', { onclick: add }, '추가'),",
+  "    h('p', { class: todos.length >= 3 ? 'count busy' : 'count' }, `${todos.length}개`),",
+  "    h('ul', null, ...todos.map(t => h('li', null, t))));",
+  "}",
+];
+
+/* ===== 단계 정의: 바뀌는 것만 apply에 적는다 (style-guide.md 6장) ===== */
+const initial = {
+  stack: [], micro: [], tasks: [],
+  hooks: [], hookIdx: null, scheduled: false, effectPending: false,
+  oldV: null, newV: null, marks: [], cursor: null,
+  dom: null, touched: [], title: '(제목 없음)', mo: [],
+  screen: null,
+  pipe: { DOM: 'idle', CSSOM: 'idle', Render: 'idle', Layout: 'idle', Paint: 'idle', Composite: 'idle' },
+  pipeNote: '아직 아무것도 하지 않았다.',
+};
+const steps = [
+  { phase: '첫 로드', title: 'HTML과 CSS를 읽어 DOM·CSSOM을 만든다',
+    what: '브라우저가 index.html을 위에서부터 읽는다. 태그는 DOM 트리가 되고, CSS는 CSSOM(스타일 규칙 트리)이 된다. 아직 #root 안은 비어 있다.',
+    why: '브라우저는 글자 그대로의 HTML로는 아무것도 할 수 없다. 트리 객체로 바꿔야 JS가 노드를 찾아 고칠 수 있고, 어떤 스타일이 적용되는지도 계산할 수 있다.',
+    ifnot: '',
+    code: ['!<div id="root"></div>          // 빈 그릇', '<script src="main.js"><\/script> // 이제 JS 차례'],
+    apply(s) { s.pipe.DOM = 'done'; s.pipe.CSSOM = 'done'; s.pipeNote = 'DOM과 CSSOM이 만들어졌다. #root는 아직 비어 있다.'; } },
+
+  { phase: '첫 로드', title: 'mount(): App을 처음 실행해 DOM을 만든다',
+    what: 'main.js가 App을 처음 실행한다. useState 두 개와 useEffect 하나가 hooks 배열에 순서대로 칸을 만든다. 돌려받은 VDOM을 통째로 실제 DOM 노드로 만들어 #root에 붙이고, 이어서 effect를 실행해 제목을 바꾼다.',
+    why: '첫 렌더에는 비교할 이전 VDOM이 없다. 그래서 diff 없이 전부 새로 만든다. hooks 배열은 컴포넌트 인스턴스에 붙어 있어서 App 함수가 끝나도 사라지지 않는다.',
+    ifnot: '',
+    code: ['!const app = new FunctionComponent(App);', '!app.mount(root);   // hooks = [] 에서 App() 첫 실행', "const [text, setText] = useState('빨래');  // hooks[0]이 비어 있어 초기값 저장"],
+    apply(s) {
+      s.stack = ['mount()', 'App()'];
+      s.hooks = ['빨래', ['장보기', '청소'], { deps: [2] }];
+      s.oldV = V0; s.dom = V0; s.title = '할 일 2개';
+      s.pipe.DOM = 'dirty'; s.pipe.Render = 'dirty'; s.pipe.Layout = 'dirty'; s.pipe.Paint = 'dirty'; s.pipe.Composite = 'dirty';
+      s.pipeNote = 'JS가 DOM에 노드를 붙였다. 아직 그리지는 않았다.';
+    } },
+
+  { phase: '첫 로드', title: '첫 그리기: Render Tree → Layout → Paint → Composite',
+    what: 'JS 실행이 끝나 콜 스택이 비었다. 브라우저가 DOM과 CSSOM을 합쳐 Render Tree를 만들고, 요소마다 위치·크기를 계산하고(Layout), 픽셀을 칠하고(Paint), 레이어를 합친다(Composite). 이제야 화면이 보인다.',
+    why: 'JS 실행과 화면 그리기는 같은 메인 스레드에서 번갈아 일어난다. 그래서 JS가 돌고 있는 동안에는 화면이 그려지지 않는다.',
+    ifnot: '',
+    code: [],
+    apply(s) {
+      s.stack = [];
+      for (const k in s.pipe) s.pipe[k] = 'done';
+      s.screen = V0; s.pipeNote = '화면에 할 일 2개가 보인다.';
+    } },
+
+  { phase: '클릭', title: '사용자가 [추가]를 누른다',
+    what: '클릭은 바로 처리되지 않는다. "클릭 이벤트 처리"라는 작업이 태스크 큐에 줄을 선다.',
+    why: '메인 스레드는 한 번에 하나만 한다. 다른 JS를 실행하는 중일 수도 있으니, 이벤트는 큐에서 차례를 기다린다.',
+    ifnot: '',
+    code: [],
+    apply(s) { s.tasks = ['click → add()']; } },
+
+  { phase: '클릭', title: '이벤트 루프가 태스크를 꺼내 add()를 실행한다',
+    what: '콜 스택이 비어 있으니 이벤트 루프가 태스크 큐에서 클릭 작업을 꺼낸다. 클릭 핸들러 add()가 콜 스택에 올라간다.',
+    why: '태스크는 한 번에 하나씩 끝까지 실행된다. add() 안의 코드가 모두 끝나기 전에는 다른 태스크도, 화면 그리기도 끼어들지 못한다.',
+    ifnot: '',
+    code: ['!const add = () => {', '  setTodos([...todos, text]);', "  setText('');", '};'],
+    apply(s) { s.tasks = []; s.stack = ['add()']; } },
+
+  { phase: 'setState', title: 'setTodos:값을 저장하고 리렌더를 예약한다',
+    what: "setTodos가 hooks[1]에 ['장보기', '청소', '빨래']를 넣는다. 그리고 update()를 바로 부르지 않고 마이크로태스크 큐에 예약만 한다.",
+    why: 'setState가 하는 일은 값 저장과 리렌더 예약, 이 두 가지다. 바로 다시 그리지 않는 이유는 바로 뒤에 다른 setState가 올 수 있어서다.',
+    ifnot: '이 클릭 하나로 App 실행·diff·patch가 두 번 일어난다. "할 일은 늘었는데 입력창은 그대로"인 중간 상태도 쓸데없이 계산한다.',
+    code: ['function setState(next) {', '!  hooks[i] = next;            // 1) 값 저장', '!  if (!scheduled) {', '!    scheduled = true;', '!    queueMicrotask(update);    // 2) 리렌더 예약', '  }', '}'],
+    apply(s) { s.stack = ['add()', 'setTodos()']; s.hooks[1] = ['장보기', '청소', '빨래']; s.scheduled = true; s.micro = ['update()']; } },
+
+  { phase: 'setState', title: 'setText:값만 저장하고, 예약은 건너뛴다',
+    what: "setText('')가 hooks[0]을 ''로 바꾼다. scheduled가 이미 true라서 update()를 또 예약하지 않는다. 마이크로태스크 큐에는 여전히 하나뿐이다.",
+    why: '이것이 batching(일괄 처리)이다. 같은 작업 안에서 생긴 setState를 모아 렌더를 한 번만 한다. 화면은 아직 그대로다.',
+    ifnot: '',
+    code: ['function setState(next) {', '!  hooks[i] = next;            // hooks[0] = \'\'', '!  if (!scheduled) { ... }     // 이미 true → 건너뜀', '}'],
+    apply(s) { s.stack = ['add()', 'setText()']; s.hooks[0] = ''; } },
+
+  { phase: 'App() 재실행', title: 'add()가 끝나면 마이크로태스크 update()가 실행된다',
+    what: 'add()가 끝나 콜 스택이 비었다. 이벤트 루프는 다음 태스크로 가기 전에 마이크로태스크 큐를 전부 비운다. update()가 실행되고 hookIndex가 0으로 돌아간다.',
+    why: "마이크로태스크는 '지금 작업이 끝난 직후, 화면을 그리기 전'에 실행된다. 모아 둔 상태 변경을 그리기 전에 한 번에 반영하기 딱 좋은 자리다.",
+    ifnot: 'hookIndex를 0으로 되돌리지 않으면 첫 useState가 hooks[3]부터 찾아서, 엉뚱한 칸(빈 칸)을 읽는다.',
+    code: ['function update() {', '!  scheduled = false;', '!  hookIndex = 0;            // 호출 순서를 처음부터 다시 센다', '  const newV = App();', '  patch(diff(oldV, newV));', '}'],
+    apply(s) { s.stack = ['update()']; s.micro = []; s.scheduled = false; s.hookIdx = 0; } },
+
+  { phase: 'App() 재실행', title: 'App() 재실행 ①: 첫 useState는 hooks[0]을 읽는다',
+    what: "App 함수가 처음부터 다시 실행된다. 첫 번째 useState는 초기값 '빨래'를 무시하고 hooks[0]에 저장된 ''를 돌려준다. hookIndex가 1로 올라간다.",
+    why: "함수의 지역 변수는 실행이 끝나면 사라진다. 그래서 상태는 함수 밖 hooks 배열에 두고, '몇 번째로 불린 hook인가'를 열쇠로 다시 찾아온다.",
+    ifnot: "매번 초기값으로 다시 시작해서 입력창이 영원히 '빨래'로 남는다.",
+    code: ["!const [text, setText] = useState('빨래');   // → text = ''  (hooks[0])", "const [todos, setTodos] = useState(['장보기', '청소']);", 'useEffect(..., [todos.length]);'],
+    apply(s) { s.stack = ['update()', 'App()']; s.hookIdx = 1; } },
+
+  { phase: 'App() 재실행', title: '② 두 번째 useState는 hooks[1]을 읽는다',
+    what: "두 번째 useState가 hooks[1]의 ['장보기', '청소', '빨래']를 돌려준다. hookIndex가 2로 올라간다.",
+    why: 'hook은 이름이 아니라 순서로 칸을 찾는다. 그래서 매 렌더마다 같은 순서로 불려야 한다.',
+    ifnot: 'useState를 if 안에 넣어 어떤 렌더에서 빠지면, 그 뒤 hook들이 한 칸씩 밀려 남의 상태를 읽는다.',
+    code: ["const [text, setText] = useState('빨래');", "!const [todos, setTodos] = useState(['장보기', '청소']);  // → 3개짜리 배열 (hooks[1])", 'useEffect(..., [todos.length]);'],
+    apply(s) { s.hookIdx = 2; } },
+
+  { phase: 'App() 재실행', title: '③ useEffect는 deps를 비교하고 실행을 미룬다',
+    what: 'hooks[2]에 저장된 이전 deps [2]와 이번 deps [3]을 비교한다. 다르므로 새 deps를 저장하고 effect를 "실행 대기"로 올린다. 아직 실행하지는 않는다.',
+    why: 'effect는 DOM이 실제로 바뀐 뒤에 돌아야 한다. 렌더 도중에 실행하면 아직 옛 DOM을 보고 일하게 된다.',
+    ifnot: 'deps 비교가 없으면 렌더할 때마다 effect가 돈다. 상관없는 상태가 바뀔 때도 document.title을 다시 쓴다.',
+    code: ['function useEffect(fn, deps) {', '  const i = hookIndex++;', '!  const changed = !hooks[i] || deps.some((d, k) => d !== hooks[i].deps[k]); // [2] vs [3] → true', '!  if (changed) { hooks[i] = { deps }; pendingEffects.push(fn); }', '}'],
+    apply(s) { s.hookIdx = 3; s.hooks[2] = { deps: [3] }; s.effectPending = true; } },
+
+  { phase: 'App() 재실행', title: 'App()이 새 VDOM을 돌려준다',
+    what: 'App()의 return이 h() 호출을 거쳐 새 VDOM 객체 트리를 만든다. 실제 DOM은 아직 하나도 바뀌지 않았다.',
+    why: 'VDOM은 그냥 JS 객체라서 만드는 데 Layout·Paint가 들지 않는다. 화면 전체를 다시 "계산"하되, 실제 반영은 diff로 고른 곳만 하려는 것이다.',
+    ifnot: '',
+    code: ["return h('div', { id: 'app' }, ...);   // → { type: 'div', props: {...}, children: [...] }"],
+    apply(s) { s.stack = ['update()']; s.hookIdx = null; s.newV = V1; } },
+
+  { phase: 'diff', title: 'diff ①: 타입이 같으면 속성부터 비교한다 (input)',
+    what: "루트 div는 타입·속성이 같아서 통과하고, 자식을 순서대로 비교한다. input의 value가 '빨래' → ''로 달라 '속성 변경'을 기록한다. button은 완전히 같아서 기록이 없다.",
+    why: '타입이 같으면 기존 노드를 재사용할 수 있다. 바뀐 속성만 고치는 것이 노드를 새로 만드는 것보다 훨씬 싸다.',
+    ifnot: '',
+    code: ['function diff(a, b) {', '  if (!a) return 추가;', '  if (!b) return 삭제;', '  if (둘 다 텍스트) return a.text !== b.text ? 텍스트 변경 : 없음;', '  if (a.type !== b.type) return 교체;', '!  diffProps(a.props, b.props);        // → 속성 변경', '  a, b의 자식마다 diff(...)            // 재귀', '}'],
+    apply(s) { s.marks = diffsAt(['0.0']); s.cursor = '0.0'; } },
+
+  { phase: 'diff', title: 'diff ②: p는 속성도, 텍스트 자식도 바뀌었다',
+    what: "p의 class가 'count' → 'count busy'로 바뀌어 '속성 변경'을 기록한다. 이어서 자식 텍스트 노드를 재귀로 비교해 '2개' → '3개' '텍스트 변경'을 기록한다.",
+    why: '텍스트도 하나의 노드다. p를 통째로 다시 만들지 않고 텍스트 노드의 글자만 바꾸면 된다.',
+    ifnot: '',
+    code: ['function diff(a, b) {', '  ...', '!  if (둘 다 텍스트) return a.text !== b.text ? 텍스트 변경 : 없음;   // "2개" → "3개"', '!  diffProps(a.props, b.props);        // class 변경', '!  a, b의 자식마다 diff(...)            // 재귀로 텍스트 노드까지', '}'],
+    apply(s) { s.marks = diffsAt(['0.0', '0.2', '0.2.0']); s.cursor = '0.2'; } },
+
+  { phase: 'diff', title: 'diff ③: ul의 자식이 하나 늘었다',
+    what: "li 두 개는 같아서 통과한다. 세 번째 자리에는 이전 VDOM에 노드가 없으므로 '추가'를 기록한다. 최종 변경 목록은 4개다.",
+    why: '이 구현은 자식을 인덱스(순서)로 맞춘다. 끝에 붙일 때는 정확하지만, 맨 앞에 끼워 넣으면 모든 li가 텍스트 변경으로 잡힌다. 실제 React가 key를 쓰는 이유다.',
+    ifnot: '',
+    code: ['function diff(a, b) {', '!  if (!a) return 추가;                 // 이전 VDOM의 ul.children[2]가 없음', '  ...', '}'],
+    apply(s) { s.marks = DIFFS; s.cursor = '0.3'; } },
+
+  { phase: 'patch', title: 'patch: 변경 목록 4개만 실제 DOM에 반영한다',
+    what: '기록된 4개만 DOM API로 고친다. div, button, 기존 li 두 개는 손대지 않는다. DOM은 바뀌었지만 화면 픽셀은 아직 그대로다.',
+    why: 'DOM을 바꾸는 것 자체보다 그 뒤에 따라오는 Layout·Paint가 비싸다. 바뀐 노드가 적을수록 브라우저가 다시 계산할 범위도 줄어든다.',
+    ifnot: '#root를 통째로 지우고 다시 만들면, 입력창 포커스·스크롤 위치가 날아가고 모든 노드가 다시 Layout·Paint된다.',
+    code: ["!input.value = '';                       // 속성 변경 (JS property)", "!p.setAttribute('class', 'count busy');  // 속성 변경", "!pText.nodeValue = '3개';                // 텍스트 변경 (텍스트 노드만)", '!ul.appendChild(createElement(newLi));   // 추가'],
+    apply(s) {
+      s.stack = ['update()', 'patch()']; s.cursor = null;
+      s.dom = V1; s.touched = DIFFS.map(d => d.path);
+      s.micro = ['MutationObserver 콜백 (기록 3건)'];
+      s.pipe.DOM = 'dirty'; s.pipe.Render = 'dirty'; s.pipe.Layout = 'dirty'; s.pipe.Paint = 'dirty'; s.pipe.Composite = 'dirty';
+      s.pipeNote = 'DOM은 바뀌었다. 브라우저는 "다시 계산해야 함" 표시만 해 두고 아직 그리지 않는다.';
+    } },
+
+  { phase: 'effect · MO', title: 'useEffect 실행: DOM 반영 직후',
+    what: "실행 대기였던 effect를 돌려 document.title을 '할 일 3개'로 바꾼다. 이 미니 리액트는 patch가 끝나면 같은 update() 안에서 effect를 실행한다.",
+    why: 'effect는 "렌더 결과가 DOM에 반영된 뒤"에 할 일(제목 바꾸기, 구독, 타이머)을 두는 자리다. 이 시점의 DOM은 이미 새 상태라서 읽어도 안전하다. 참고로 React 18도 클릭 같은 입력으로 생긴 업데이트면 effect를 그리기 전에 동기로 실행하고, 입력이 아닌 업데이트에서는 보통 그린 뒤로 미룬다.',
+    ifnot: '',
+    code: ['function update() {', '  ...', '  patch(diff(oldV, newV));', '!  pendingEffects.forEach(fn => fn());   // document.title = \'할 일 3개\'', '  oldV = newV;                          // 다음 비교의 기준', '}'],
+    apply(s) { s.stack = ['update()', 'effect()']; s.effectPending = false; s.title = '할 일 3개'; } },
+
+  { phase: 'effect · MO', title: 'MutationObserver 콜백: 변경 기록이 한꺼번에 도착한다',
+    what: 'update()가 끝나 콜 스택이 비면, 이벤트 루프가 마이크로태스크 큐에 남은 MutationObserver 콜백을 실행한다. 기록은 3건이고, input.value 변경은 빠져 있다.',
+    why: 'MutationObserver는 변경이 생길 때마다 부르지 않고, 기록을 모아 마이크로태스크로 한 번에 넘긴다. 수백 번 바뀌어도 콜백은 한 번이다. value는 DOM 트리의 attribute가 아니라 JS property라서 기록되지 않는다.',
+    ifnot: '',
+    code: ['// 앱 시작 때 #root에 붙여 둔 관찰자', 'new MutationObserver(records => log(records))', '  .observe(root, { subtree: true, childList: true,', '                   attributes: true, characterData: true });', '!// records → attributes(p.class), characterData("3개"), childList(li 추가)'],
+    apply(s) {
+      s.stack = ['MutationObserver 콜백'];
+      s.micro = [];
+      s.mo = ['attributes · <p> class', 'characterData · "2개" → "3개"', 'childList · <ul>에 <li> 추가'];
+    } },
+
+  { phase: 'Layout · Paint', title: '다음 프레임: Layout(Reflow) → Paint(Repaint) → Composite',
+    what: '콜 스택과 마이크로태스크 큐가 모두 비었다. 브라우저가 스타일을 다시 계산하고, li가 늘어난 ul의 높이를 다시 잰다(Reflow). 바뀐 영역을 다시 칠하고(Repaint) 레이어를 합친다. 이제 화면이 바뀐다.',
+    why: 'JS가 DOM을 네 번 고쳤지만 Layout은 한 번만 일어난다. 브라우저가 변경을 모아 두었다가 그리기 직전에 한 번 계산하기 때문이다. 방금 만든 새 VDOM은 다음 클릭 때 "이전 VDOM"이 된다.',
+    ifnot: 'patch 도중에 offsetHeight 같은 값을 읽으면 이 묶음이 깨져, 그 자리에서 Layout이 강제로 일어난다.',
+    code: [],
+    apply(s) {
+      s.stack = [];
+      for (const k in s.pipe) s.pipe[k] = 'done';
+      s.screen = V1;
+      s.pipeNote = 'Reflow: ul 높이 · Repaint: 입력창, "3개", 새 li';
+    } },
+];
+
+/* ===== 누적 상태 계산 ===== */
+const states = [];
+steps.reduce((prev, st) => { const s = structuredClone(prev); st.apply(s); states.push(s); return s; }, initial);
+
+function esc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function codeHTML(lines){
+  return lines.map(l => { const i = l.indexOf('//');
+    return `<span class="ln${l.startsWith('!') ? ' hl' : ''}">` +
+      (i < 0 ? esc(l.replace(/^!/,'')) : esc(l.slice(0,i).replace(/^!/,'')) + `<span class="cm">${esc(l.slice(i))}</span>`) + '</span>'; }).join('');
+}
+document.getElementById('appCode').innerHTML = codeHTML(APP_CODE);
+
+/* ===== 그리기 ===== */
+const HOOK_NAMES = ['useState · text', 'useState · todos', 'useEffect · deps'];
+const PIPE = [['DOM', 'DOM'], ['CSSOM', 'CSSOM'], ['Render', 'Render Tree'], ['Layout', 'Layout'], ['Paint', 'Paint'], ['Composite', 'Composite']];
+const PIPE_STATE = { idle: '아직', dirty: '다시 필요', done: '완료' };
+const J = JSON.stringify;
+
+// 화면 표시용 문자열 (escape는 쓰는 쪽에서 한다)
+function fmt(v){
+  if (Array.isArray(v)) return '[' + v.map(fmt).join(', ') + ']';
+  if (typeof v === 'string') return `'${v}'`;
+  if (v && v.deps) return `{ deps: [${v.deps.join(', ')}] }`;
+  return String(v);
+}
+
+/* 이번 단계에서 바뀐 것: 이전 상태와 비교해 자동으로 뽑는다 */
+function delta(s, p){
+  const out = [];
+  const plus = (a, b) => a.filter(x => !b.includes(x));
+  if (J(s.stack) !== J(p.stack)) out.push(s.stack.length ? `실행 중: ${s.stack.at(-1)}` : '콜 스택 비움');
+  for (const [k, n] of [['micro', '마이크로태스크'], ['tasks', '태스크 큐']]) {
+    plus(s[k], p[k]).forEach(x => out.push(`${n} + ${x}`));
+    plus(p[k], s[k]).forEach(x => out.push(`${n} − ${x}`));
+  }
+  s.hooks.forEach((v, i) => { if (J(v) !== J(p.hooks[i])) out.push(`hooks[${i}] = ${fmt(v)}`); });
+  if (s.hookIdx !== p.hookIdx && s.hookIdx !== null) out.push(`hookIndex → ${s.hookIdx}`);
+  if (s.scheduled !== p.scheduled) out.push(s.scheduled ? '리렌더 예약' : '예약 플래그 해제');
+  if (s.effectPending !== p.effectPending) out.push(s.effectPending ? 'effect 대기 등록' : 'effect 실행');
+  if (s.newV && !p.newV) out.push('새 VDOM 생성');
+  const seen = p.marks.map(d => d.kind + '@' + d.path);
+  s.marks.filter(d => !seen.includes(d.kind + '@' + d.path)).forEach(d => out.push(`diff: ${KIND[d.kind]} <${d.node}>`));
+  if (s.dom && !p.dom) out.push('DOM 노드 생성');
+  if (s.touched.length > p.touched.length) out.push(`실제 DOM ${s.touched.length}곳 수정`);
+  if (s.title !== p.title) out.push(`title → '${s.title}'`);
+  if (s.mo.length > p.mo.length) out.push(`MO 기록 ${s.mo.length}건 수신`);
+  if (J(s.screen) !== J(p.screen)) out.push('화면 픽셀 갱신');
+  for (const st of ['done', 'dirty']) {
+    const ks = PIPE.filter(([k]) => s.pipe[k] !== p.pipe[k] && s.pipe[k] === st).map(([, l]) => l);
+    if (ks.length) out.push(`${ks.join('·')} ${PIPE_STATE[st]}`);
+  }
+  return out;
+}
+
+/* 큐·스택·기록 항목. 이전 단계에 없던 항목은 .enter로 들어오는 움직임을 준다 */
+const items = (arr, prevArr, cls, top) => arr.length
+  ? arr.map((x, i) => `<span class="qi ${cls}${top && i === 0 ? ' top' : ''}${prevArr && !prevArr.includes(x) ? ' enter' : ''}">${esc(x)}</span>`).join('')
+  : '<span class="empty">비어 있음</span>';
+
+/* VDOM 트리 하나에 diff 결과를 겹쳐 그린다: 바뀐 값은 취소선(이전) → 노란 글자(새 값) */
+function vRows(n, path, depth, s, prev){
+  if (!n) return '';
+  const m = s.marks.filter(d => d.path === path);
+  const touched = s.touched.includes(path);
+  const fresh = d => !prev || !prev.marks.some(x => x.path === d.path && x.kind === d.kind) || (touched && !prev.touched.includes(path));
+  const cls = ['tn'];
+  if (s.cursor === path) cls.push('cur');
+  if (m.length) cls.push('mk');
+  if (m.some(d => d.kind === 'add')) cls.push('added');
+  let label;
+  if (isText(n)) {
+    const tm = m.find(d => d.kind === 'text');
+    label = tm ? `<s>"${esc(tm.from)}"</s> → <span class="nw">"${esc(n.text)}"</span>` : `<span class="tx">"${esc(n.text)}"</span>`;
+  } else {
+    label = `<span class="tg">&lt;${n.type}</span>` + Object.entries(n.props).map(([k, v]) => {
+      const pm = m.find(d => d.kind === 'prop' && d.key === k);
+      return ` <span class="at">${k}</span>=` + (pm ? `<s>"${esc(pm.from)}"</s>→<span class="nw">"${esc(v)}"</span>` : `<span class="av">"${esc(v)}"</span>`);
+    }).join('') + '<span class="tg">&gt;</span>';
+  }
+  const chips = m.map(d => `<span class="chip data${fresh(d) ? ' enter' : ''}">${KIND[d.kind]}${touched ? ' ✓' : ''}</span>`).join('');
+  let html = `<div class="${cls.join(' ')}" style="--d:${depth}"><span class="lbl">${label}</span>${chips}</div>`;
+  (n.children || []).forEach((c, i) => html += vRows(c, `${path}.${i}`, depth + 1, s, prev));
+  return html;
+}
+
+function screenHTML(v, pv){
+  if (!v) return '<div class="empty">아직 아무것도 그려지지 않았다.</div>';
+  const [inp, , p, ul] = v.children;
+  const before = pv ? pv.children[3].children.length : ul.children.length;
+  return `<div class="ap-row"><span class="ap-input">${inp.props.value ? esc(inp.props.value) : '<span class="ph">할 일 입력</span>'}</span><span class="ap-btn">추가</span></div>
+    <div class="ap-count${p.props.class.includes('busy') ? ' busy' : ''}">${esc(p.children[0].text)}</div>
+    <ul class="ap-list">${ul.children.map((li, i) => `<li${i >= before ? ' class="enter"' : ''}>${esc(li.children[0].text)}</li>`).join('')}</ul>`;
+}
+
+function renderStage(s, prev){
+  const ch = get => prev && J(get(s)) !== J(get(prev)) ? ' changed' : '';
+
+  const loop = `<div class="card panel browser">
+    <div class="p-head"><span class="p-name">이벤트 루프</span><span class="chip a">브라우저</span></div>
+    <div class="loop">
+      <div class="lane${ch(x => x.stack)}"><span class="lane-n">콜 스택</span><div class="lane-items">${items([...s.stack].reverse(), prev && prev.stack, 'run', true)}</div></div>
+      <div class="lane${ch(x => x.micro)}"><span class="lane-n">마이크로태스크 큐</span><div class="lane-items">${items(s.micro, prev && prev.micro, 'mq')}</div></div>
+      <div class="lane${ch(x => x.tasks)}"><span class="lane-n">태스크 큐</span><div class="lane-items">${items(s.tasks, prev && prev.tasks, 'tq')}</div></div>
+    </div></div>`;
+
+  const hooks = `<div class="card panel fw">
+    <div class="p-head"><span class="p-name">hooks 배열</span><span class="chip b">미니 리액트</span></div>
+    <div class="hooks">${HOOK_NAMES.map((n, i) => `<div class="hook${s.hookIdx === i ? ' ptr' : ''}${ch(x => [x.hooks[i], x.hookIdx === i])}">
+      <span class="hk-i">[${i}]</span>
+      <span class="hk-n">${n}${s.hookIdx === i ? '<span class="chip b enter">← hookIndex</span>' : ''}</span>
+      <span class="hk-v">${i in s.hooks ? esc(fmt(s.hooks[i])) : '<span class="empty">아직 없음</span>'}</span></div>`).join('')}</div>
+    <div class="hk-meta${ch(x => [x.hookIdx, x.scheduled, x.effectPending])}">
+      <span>hookIndex = ${s.hookIdx === null ? '-' : s.hookIdx}${s.hookIdx === HOOK_NAMES.length ? ' (전부 읽음)' : ''}</span>
+      ${s.scheduled ? '<span class="chip data">리렌더 예약됨</span>' : '<span class="chip">예약 없음</span>'}
+      ${s.effectPending ? '<span class="chip data">effect 실행 대기</span>' : ''}
+    </div></div>`;
+
+  const v = s.newV || s.oldV;
+  const vdom = `<div class="card panel fw">
+    <div class="p-head"><span class="p-name">Virtual DOM</span><span class="row" style="gap:6px">${s.marks.length ? `<span class="chip data">변경 ${s.marks.length}개</span>` : ''}<span class="chip b">미니 리액트</span></span></div>
+    <div class="box-title">${s.newV ? (s.marks.length ? `새 VDOM · 취소선은 이전 값${s.touched.length ? ' · ✓ DOM 반영됨' : ''}` : '새 VDOM (App() 재실행 결과)') : '현재 VDOM (지금 화면의 설계도)'}</div>
+    <div class="tree${ch(x => [x.newV, x.marks, x.cursor, x.touched])}">${v ? vRows(v, '0', 0, s, prev) : '<div class="empty">아직 없음</div>'}</div>
+  </div>`;
+
+  const synced = J(s.dom) === J(s.screen);
+  const paint = `<div class="card panel browser">
+    <div class="p-head"><span class="p-name">렌더링 · 화면</span><span class="chip a">브라우저</span></div>
+    <div class="pipe${ch(x => x.pipe)}">${PIPE.map(([k, l]) => `<div class="pp ${s.pipe[k]}"><span class="pp-n">${l}</span><span class="pp-s">${PIPE_STATE[s.pipe[k]]}</span></div>`).join('')}</div>
+    <p class="pipe-note">${esc(s.pipeNote)}</p>
+    <div class="screen${ch(x => x.screen)}">
+      <div class="screen-bar"><span class="tab-title${ch(x => x.title)}" title="document.title">${esc(s.title)}</span>${s.dom ? (synced ? '<span class="chip a">DOM = 픽셀</span>' : '<span class="chip data">DOM만 바뀜</span>') : ''}</div>
+      <div class="screen-body">${screenHTML(s.screen, prev && prev.screen)}</div>
+    </div>
+    <div class="mo${ch(x => x.mo)}"><div class="box-title">MutationObserver가 받은 기록</div><div class="lane-items">${items(s.mo, prev && prev.mo, '')}</div></div>
+  </div>`;
+
+  document.getElementById('stage').innerHTML = `<div class="col">${loop}${hooks}</div>${vdom}${paint}`;
+}
+
+/* ===== 컨트롤 ===== */
+const phaseNames = [...new Set(steps.map(s => s.phase))];
+document.getElementById('phases').innerHTML = phaseNames.map(p => `<button type="button" data-p="${p}">${p}</button>`).join('<span class="fm-ar" aria-hidden="true">›</span>');
+document.getElementById('phases').onclick = e => { const p = e.target.dataset.p; if (p) { stop(); go(steps.findIndex(s => s.phase === p)); } };
+
+let idx = 0, timer = null;
+function go(i){
+  idx = Math.max(0, Math.min(steps.length - 1, i));
+  const st = steps[idx];
+  document.getElementById('stepCount').textContent = `${idx + 1} / ${steps.length}`;
+  document.getElementById('progressBar').style.width = `${(idx + 1) / steps.length * 100}%`;
+  const cur = phaseNames.indexOf(st.phase);
+  document.querySelectorAll('#phases button').forEach(b => { const k = phaseNames.indexOf(b.dataset.p); b.classList.toggle('on', k === cur); b.classList.toggle('past', k < cur); });
+  document.getElementById('stepTitle').textContent = st.title;
+  document.getElementById('delta').innerHTML = delta(states[idx], idx > 0 ? states[idx - 1] : initial).map(t => `<span class="dc enter">${esc(t)}</span>`).join('');
+  document.getElementById('explain').innerHTML =
+    `<dt>무슨 일이</dt><dd>${esc(st.what)}</dd><dt>왜</dt><dd>${esc(st.why)}</dd>` +
+    (st.ifnot ? `<dt class="ifnot">안 하면</dt><dd>${esc(st.ifnot)}</dd>` : '');
+  const code = document.getElementById('stepCode');
+  code.hidden = !st.code.length; code.innerHTML = codeHTML(st.code);
+  renderStage(states[idx], idx > 0 ? states[idx - 1] : null);
+  document.getElementById('btnFirst').disabled = document.getElementById('btnPrev').disabled = idx === 0;
+  document.getElementById('btnNext').disabled = idx === steps.length - 1;
+}
+function stop(){ clearInterval(timer); timer = null; document.getElementById('btnPlay').textContent = '▶ 자동재생'; }
+document.getElementById('btnFirst').onclick = () => { stop(); go(0); };
+document.getElementById('btnPrev').onclick = () => { stop(); go(idx - 1); };
+document.getElementById('btnNext').onclick = () => { stop(); go(idx + 1); };
+document.getElementById('btnPlay').onclick = () => {
+  if (timer) return stop();
+  if (idx === steps.length - 1) go(0);
+  document.getElementById('btnPlay').textContent = '⏸ 일시정지';
+  timer = setInterval(() => idx >= steps.length - 1 ? stop() : go(idx + 1), 5000);
+};
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea,select')) return;
+  if (e.key === 'ArrowRight') { stop(); go(idx + 1); }
+  if (e.key === 'ArrowLeft') { stop(); go(idx - 1); }
+});
+go(0);
+</script>
+</body>
+</html>

@@ -3,52 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Phase 1 · VDOM Diff 검증</title>
+  <title>Mini React · Phase 1</title>
   <link rel="stylesheet" href="./style.css">
+  <script>
+    // 화면을 그리기 전에 테마를 정해야 깜빡이지 않는다. 저장된 선택이 없으면 시스템 설정을 따른다
+    {
+      let saved = null;
+      try { saved = localStorage.getItem('theme'); } catch {}
+      document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+  </script>
 </head>
 <body>
-  <h1>Phase 1 · Virtual DOM Diff &amp; Patch</h1>
+  <header class="hero">
+    <button id="theme-toggle" class="theme-toggle" type="button"></button>
+    <p class="hero-eyebrow">Phase 1</p>
+    <h1>Mini React</h1>
+    <p class="hero-tags">
+      <span class="chip chip-blue">Virtual DOM</span>
+      <span class="chip chip-indigo">Diff</span>
+      <span class="chip chip-green">Patch</span>
+    </p>
+  </header>
 
-  <div class="controls">
-    <button id="btn-patch" type="button">Patch</button>
-    <button id="btn-back" type="button">뒤로가기</button>
-    <button id="btn-forward" type="button">앞으로가기</button>
-    <span id="step" aria-live="polite"></span>
-  </div>
+  <main>
+    <section class="card stage" aria-label="Patch 실험">
+      <div class="toolbar">
+        <div class="buttons">
+          <button id="btn-patch" class="primary" type="button">Patch</button>
+          <button id="btn-back" type="button">뒤로가기</button>
+          <button id="btn-forward" type="button">앞으로가기</button>
+        </div>
+        <span id="step" aria-live="polite"></span>
+      </div>
 
-  <main class="areas">
-    <section>
-      <h2>실제 영역</h2>
-      <!-- 로드 시 VDOM으로 읽은 뒤 공백·주석을 걸러 다시 그린다 -->
-      <div id="real" class="real">
-        <h3 class="title" id="main-title">오늘 할 일</h3>
-        <ul class="todo" data-count="3">
-          <li class="done">장보기</li>
-          <li>운동 &amp; 스트레칭</li>
-          <li title="중요">과제: a &lt; b 증명</li>
-        </ul>
-        <p>링크: <a href="https://example.com" target="_blank">예시</a></p>
+      <div class="areas">
+        <section class="pane">
+          <h2 class="pane-label"><span class="dot dot-green"></span>실제 영역</h2>
+          <!-- 로드 시 VDOM으로 읽은 뒤 공백·주석을 걸러 다시 그린다 -->
+          <div id="real" class="pane-box real">
+            <h3 class="title" id="main-title">오늘 할 일</h3>
+            <ul class="todo" data-count="3">
+              <li class="done">장보기</li>
+              <li>운동 &amp; 스트레칭</li>
+              <li title="중요">과제: a &lt; b 증명</li>
+            </ul>
+            <p>링크: <a href="https://example.com" target="_blank">예시</a></p>
+          </div>
+        </section>
+
+        <section class="pane">
+          <h2 class="pane-label"><span class="dot dot-blue"></span><label for="test">테스트 영역</label></h2>
+          <textarea
+            id="test"
+            class="pane-box"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+          ></textarea>
+        </section>
       </div>
     </section>
-    <section>
-      <h2><label for="test">테스트 영역</label></h2>
-      <textarea id="test" spellcheck="false"></textarea>
+
+    <section class="stats" aria-label="마지막 반영 결과">
+      <div class="card stat">
+        <h2 class="stat-label">바뀐 노드 수</h2>
+        <p class="stat-main"><span id="patch-nodes">-</span><small>diff → patch</small></p>
+        <p class="stat-sub">innerHTML 전체 교체 <span id="inner-nodes">-</span></p>
+      </div>
+      <div class="card stat">
+        <h2 class="stat-label">MutationRecord 수</h2>
+        <p class="stat-main"><span id="patch-records">-</span><small>diff → patch</small></p>
+        <p class="stat-sub">innerHTML 전체 교체 <span id="inner-records">-</span></p>
+      </div>
+    </section>
+
+    <section class="card log" aria-labelledby="log-title">
+      <h2 id="log-title">Patch 로그</h2>
+      <ol id="log"></ol>
     </section>
   </main>
-
-  <section class="report">
-    <h2>마지막 반영 결과</h2>
-    <table>
-      <thead><tr><th></th><th>diff → patch</th><th>innerHTML 전체 교체</th></tr></thead>
-      <tbody>
-        <tr><th>바뀐 노드 수</th><td id="patch-nodes">-</td><td id="inner-nodes">-</td></tr>
-        <tr><th>MutationRecord 수</th><td id="patch-records">-</td><td id="inner-records">-</td></tr>
-      </tbody>
-    </table>
-    <p class="hint">바뀐 노드 수 = 속성·텍스트 변경 1개씩 + 추가·삭제된 노드(하위 노드 포함) 개수. innerHTML은 레코드 1개에 노드를 통째로 갈아 끼운다.</p>
-    <h3>patch 로그</h3>
-    <ol id="log"></ol>
-  </section>
 
   <script type="module" src="./main.js"></script>
 </body>

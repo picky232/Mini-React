@@ -1,7 +1,7 @@
 # 미니 리액트 과제: 핵심 요구사항
 
 Vanilla HTML/CSS/JS(TS)로 동작하는 미니 리액트를 만든다. React, Vue 같은 외부 프레임워크는 금지(테스트 도구는 허용).
-일정, 폴더 구조, 체크포인트는 SCHEDULE.md를 따른다.
+일정, 폴더 구조, 체크포인트는 docs/SCHEDULE.md를 따른다. 문서는 모두 docs/에 둔다.
 
 ## Phase 1: Virtual DOM + Diff + Patch
 - 실제 DOM을 읽어 VDOM으로 바꾸는 함수, 두 VDOM을 비교하는 diff를 만든다.

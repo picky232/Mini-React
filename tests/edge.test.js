@@ -1,4 +1,4 @@
-// Stage 3 엣지 케이스 사냥꾼. PHASE1_PLAN.md 4장 목록과 fixtures CASES 에 없는 입력만 다룬다.
+// Stage 3 엣지 케이스 사냥꾼. docs/PHASE1_PLAN.md 4장 목록과 fixtures CASES 에 없는 입력만 다룬다.
 // 모든 테스트는 diff → patch 왕복 결과가 "새 HTML"과 같은지로 검증한다.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { containerToVNode, htmlToVNode, vnodeToHTML } from '../src/vdom.js';
