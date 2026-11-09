@@ -4,7 +4,7 @@
 
 - Vanilla HTML/CSS/JavaScript ESM으로 Mini React를 만든다. React·Vue 등 UI 프레임워크와 JSX 도구는 사용하지 않는다.
 - 과제 요구사항은 README.md, 데이터·인터페이스 기준은 src/core/contracts.js 및 docs/architecture.md, 단계별 범위는 PLAN.md를 따른다.
-- 현재 Stage 3까지 구현과 검증을 마쳤다. 다음 단계는 사용자가 요청할 때 진행한다.
+- 현재 Stage 4까지 구현과 검증을 마쳤다. 다음 단계는 사용자가 요청할 때 진행한다.
 - 단계가 진행되면 PLAN.md의 체크 항목과 이 문서의 현재 단계도 실제 검증 결과에 맞춰 갱신한다.
 - Phase 2는 Phase 1 엔진을 재사용한다. 루트만 State/Hooks를 관리하고 자식 컴포넌트는 순수 함수로 둔다.
 
