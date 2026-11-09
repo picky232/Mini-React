@@ -1,4 +1,5 @@
 import { h } from '../core/vnode.js';
+import { setDOMEvent } from './events.js';
 
 /**
  * VNode를 읽어 새 DOM 트리를 만든다. 반환한 루트는 화면에 자동 삽입하지 않는다.
@@ -27,9 +28,9 @@ export function createDOM(vnode, ownerDocument) {
   for (const [name, value] of Object.entries(elementVNode.props.attrs)) {
     element.setAttribute(name, value);
   }
-  // 이벤트 함수는 속성 문자열이 아니라 실제 리스너로 등록한다.
+  // 나중에 Patch에서 교체하거나 해제할 수 있도록 등록한 함수도 기록한다.
   for (const [name, listener] of Object.entries(elementVNode.props.events)) {
-    element.addEventListener(name, listener);
+    setDOMEvent(element, name, listener);
   }
   // 자식도 같은 Document에서 재귀 생성하고 원래 순서대로 연결한다.
   for (const child of elementVNode.children) {

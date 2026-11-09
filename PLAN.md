@@ -1,6 +1,6 @@
 # 구현 계획
 
-현재: **Stage 0 — 설계 및 초기화**. 다음 단계는 사용자가 요청할 때 진행한다.
+현재: **Stage 3 — Patch와 엔진 통합 구현·검증 완료**. 다음 단계는 사용자가 요청할 때 진행한다.
 
 각 단계의 시간은 **이론 30% → AI 코딩 40% → 생성 코드 분석 30%**로 배분한다. 체크 표시는 해당 완료 조건과 검증을 만족했을 때만 갱신한다.
 
@@ -12,16 +12,16 @@
 - [x] AGENTS.md와 이후 단계 계획 작성
 - [x] npm run check로 정적 계약·환경 확인 (JSDoc 검사 통과, 환경 확인 테스트 2파일·3개 통과)
 
-알고리즘, 기능 테스트, 데모 UI는 이 단계의 산출물이 아니다. 현재 통합 디렉터리의 테스트는 DOM 환경 확인만 수행한다.
+Stage 0에서는 설계·초기화와 테스트 환경 확인을 수행했다.
 
 ## Stage 1 — VNode 생성과 DOM 왕복
 
 **범위:** core/vnode.js, dom/from-dom.js, dom/render.js 및 대응 단위·통합 테스트.
 
-- [ ] `h`, `createTextVNode`, `domToVNode`, `createDOM` 구현
-- [ ] 단위: 문자열·숫자 정규화, null/boolean 생략, 속성·이벤트, 입력 소유권, 미지원 입력의 명시적 거절
-- [ ] 통합: DOM → VNode → DOM → VNode 결과 동등성. 공백·빈 텍스트·중첩·빈 요소 보존
-- [ ] `createDOM`이 새 노드를 만들고 원본 DOM을 변경하지 않는지 확인
+- [x] `h`, `createTextVNode`, `domToVNode`, `createDOM` 구현
+- [x] 단위: 문자열·숫자 정규화, null/boolean 생략, 속성·이벤트, 입력 소유권, 미지원 입력의 명시적 거절
+- [x] 통합: DOM → VNode → DOM → VNode 결과 동등성. 공백·빈 텍스트·중첩·빈 요소 보존
+- [x] `createDOM`이 새 노드를 만들고 원본 DOM을 변경하지 않는지 확인
 
 이론: DOM childNodes와 children의 차이, HTML 속성과 DOM property의 차이, VNode가 필요한 이유.
 코드 분석: 어떤 값이 정규화되는지, DOM 읽기/생성 경계, 입력 배열·props의 변경이 결과에 전파되지 않는 이유를 설명한다.
@@ -30,23 +30,23 @@
 
 **범위:** core/diff.js, tests/unit/diff.test.js. DOM 코드 변경 없이 계약과 수동 VNode fixture로 검증한다.
 
-- [ ] 동일 트리 → 빈 Patch, 생성·삭제·교체·텍스트·속성/이벤트 변경의 다섯 종류 구현
-- [ ] null ↔ 루트, element ↔ text, 태그 변경, 속성 삭제, 이벤트 함수 교체 검증
-- [ ] 자식 추가·연속 삭제·중간 삽입·재배열과 적용 순서 검증
-- [ ] 이전/다음 입력을 동결한 테스트로 비변경 계약 검증
+- [x] 동일 트리 → 빈 Patch, 생성·삭제·교체·텍스트·속성/이벤트 변경의 다섯 종류 구현
+- [x] null ↔ 루트, element ↔ text, 태그 변경, 속성 삭제, 이벤트 함수 교체 검증
+- [x] 자식 추가·연속 삭제·중간 삽입·재배열과 적용 순서 검증
+- [x] 이전/다음 입력을 동결한 테스트로 비변경 계약 검증
 
 이론: 재귀 비교, 형제 인덱스 대응의 한계, 순차 Patch의 주소 기준.
 코드 분석: 예제 두 트리를 직접 비교해 Patch를 예측하고, 인덱스 이동이 생기는 사례를 손으로 추적한다. 아직 없는 Patch 구현을 테스트 안에서 복제하지 않는다.
 
 ## Stage 3 — Patch와 엔진 통합
 
-**범위:** dom/patch.js, tests/unit/patch.test.js, tests/integration/engine.test.js.
+**범위:** dom/patch.js, 이벤트 등록 기록을 공유하는 dom/events.js와 dom/render.js, tests/unit/patch.test.js, tests/integration/engine.test.js.
 
-- [ ] 다섯 Patch 적용, 잘못된 경로·노드 종류·루트 소유권의 오류 처리
-- [ ] 속성 삭제·boolean 속성, 이벤트 교체/해제 후 중복 호출 없음 검증
-- [ ] 통합: old DOM → old VNode, next VNode → Diff → Patch → 목표 VNode 동등성
-- [ ] 빈 루트 생성/삭제, 연속 자식 삭제, 중간 삽입 후 하위 변경, 텍스트/공백 포함 조합 검증
-- [ ] 변경하지 않은 형제 DOM 참조 유지, TEXT는 기존 Text 노드 유지, 무변경 Patch는 DOM을 건드리지 않음 검증
+- [x] 다섯 Patch 적용, 잘못된 경로·노드 종류·루트 소유권의 오류 처리
+- [x] 속성 삭제·boolean 속성, 이벤트 교체/해제 후 중복 호출 없음 검증
+- [x] 통합: old DOM → old VNode, next VNode → Diff → Patch → 목표 VNode 동등성
+- [x] 빈 루트 생성/삭제, 연속 자식 삭제, 중간 삽입 후 하위 변경, 텍스트/공백 포함 조합 검증
+- [x] 변경하지 않은 형제 DOM 참조 유지, TEXT는 기존 Text 노드 유지, 무변경 Patch는 DOM을 건드리지 않음 검증
 
 이론: DOM 노드 정체성, 전체 재렌더와 부분 갱신, Reflow/Repaint와 측정의 구분.
 코드 분석: Diff가 만든 각 명령의 실제 대상과 순서를 확인하고 전체 innerHTML 교체가 없는지 검토한다.
