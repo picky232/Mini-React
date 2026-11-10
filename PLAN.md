@@ -1,6 +1,6 @@
 # 구현 계획
 
-현재 **Phase 2 Stage 1 — 최초 렌더링 구현·검증 완료**. 다음 단계는 사용자가 요청할 때 진행한다.
+현재 **Phase 2 Stage 2 — 상태와 부분 갱신 구현·검증 완료**. 다음 단계는 사용자가 요청할 때 진행한다.
 
 각 단계의 시간은 **이론 30% → AI 코딩 40% → 생성 코드 분석 30%**로 배분한다. 체크 표시는 해당 완료 조건과 검증을 만족했을 때만 갱신한다.
 
@@ -84,7 +84,7 @@ Stage 0에서는 설계·초기화와 테스트 환경 확인을 수행했다.
 
 - [ ] Stage 0 — Phase 1 재사용 경로 확인 및 Phase 2 설계 계약 작성
 - [x] Stage 1 — `FunctionComponent`, `hooks` 배열, `mount()`, props로 자식 렌더링
-- [ ] Stage 2 — `update()`, 루트 `useState()`, 기존 Diff/Patch로 부분 갱신
+- [x] Stage 2 — `update()`, 루트 `useState()`, 기존 Diff/Patch로 부분 갱신, Patch 실패 시 DOM·상태 복구
 - [ ] Stage 3 — `useEffect()`, DOM 반영 후 실행과 cleanup
 - [ ] Stage 4 — `useMemo()`, 의존성 비교와 계산 결과 재사용
 - [ ] Stage 5 — Todo 데모, 단위·통합·브라우저 검증, README 정리

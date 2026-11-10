@@ -2,7 +2,7 @@ import { diff } from '../core/diff.js';
 import { createHistory, getCurrent, pushHistory, redo, undo } from '../core/history.js';
 import { domToVNode } from '../dom/from-dom.js';
 import { applyPatches } from '../dom/patch.js';
-import { createDOM } from '../dom/render.js';
+import { replaceDOMTree as renderArea } from '../dom/render.js';
 
 /** @typedef {import('../core/contracts.js').Tree} Tree */
 /** @typedef {import('../core/contracts.js').History} History */
@@ -36,15 +36,6 @@ function readSource(editor) {
   if (roots.length > 1) throw new RangeError('Expected at most one root.');
   const root = roots[0] ?? content.firstChild;
   return root ? domToVNode(/** @type {Element | Text} */ (root)) : null;
-}
-
-/** @param {HTMLElement} area @param {Tree} tree */
-function renderArea(area, tree) {
-  if (tree === null) {
-    area.replaceChildren();
-  } else {
-    area.replaceChildren(createDOM(tree, area.ownerDocument));
-  }
 }
 
 /** @param {HTMLElement} area @param {Tree} saved */

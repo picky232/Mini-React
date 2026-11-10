@@ -39,3 +39,16 @@ export function createDOM(vnode, ownerDocument) {
   // 호출자가 원하는 컨테이너에 삽입할 수 있도록 분리된 루트를 반환한다.
   return element;
 }
+
+/**
+ * 저장된 트리로 컨테이너의 내용을 복원한다. 새 루트는 삽입 전에 완성한다.
+ * @param {Element} container
+ * @param {import('../core/contracts.js').Tree} tree
+ */
+export function replaceDOMTree(container, tree) {
+  if (tree === null) {
+    container.replaceChildren();
+  } else {
+    container.replaceChildren(createDOM(tree, container.ownerDocument));
+  }
+}
