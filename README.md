@@ -4,7 +4,7 @@
 
 - **Phase 1**: 실제 DOM → VDOM 변환, 두 VDOM 비교(diff), 바뀐 곳만 반영(patch), 뒤로·앞으로 가기
 - **Phase 2**: `FunctionComponent`, `useState` · `useEffect` · `useMemo`, `batch()`, 루트 전용 Hook 규칙
-- **차별점**: key 기반 리스트 재조정(LIS), 실패하면 마지막 화면으로 복구, 엔진 전체에 걸친 위험 입력 차단, Patch 로그와 innerHTML 비용 비교, Hooks 인스펙터
+- **차별점**: key 기반 리스트 재조정(LIS), memo와 같은 값 건너뛰기, 실패하면 마지막 화면으로 복구, 엔진 전체에 걸친 위험 입력 차단, Patch 로그와 innerHTML 비용 비교, Hooks 인스펙터
 
 ## 실행
 
@@ -109,7 +109,7 @@ MutationObserver는 실제 DOM이 바뀔 때마다 기록(MutationRecord)을 남
 
 ### setState가 상태 변경 말고 하는 일
 
-setState는 값만 바꾸지 않고 **리렌더를 요청**합니다. 루트 함수를 다시 실행해 새 VDOM을 만들고, 이전 VDOM과 diff한 뒤 바뀐 곳만 patch합니다. Patch가 실패하면 슬롯 값과 화면을 마지막으로 성공한 상태로 되돌립니다. 여러 setState를 한 번의 렌더로 묶고 싶으면 `component.batch()` 안에서 부릅니다. Effect 안에서 부른 setState는 큐에 넣었다가 Effect가 모두 끝난 뒤 차례로 반영하고, 연속 50번을 넘으면 무한 갱신으로 보고 멈춥니다.
+setState는 값만 바꾸지 않고 **리렌더를 요청**합니다. 단, 지금과 같은 값이면 요청하지 않습니다. 루트 함수를 다시 실행해 새 VDOM을 만들고, 이전 VDOM과 diff한 뒤 바뀐 곳만 patch합니다. Patch가 실패하면 슬롯 값과 화면을 마지막으로 성공한 상태로 되돌립니다. 여러 setState를 한 번의 렌더로 묶고 싶으면 `component.batch()` 안에서 부릅니다. Effect 안에서 부른 setState는 큐에 넣었다가 Effect가 모두 끝난 뒤 차례로 반영하고, 연속 50번을 넘으면 무한 갱신으로 보고 멈춥니다.
 
 ### 컴포넌트 분리와 state 위치
 
@@ -132,17 +132,27 @@ setState는 값만 바꾸지 않고 **리렌더를 요청**합니다. 루트 함
 | 맨 앞에 추가 | TEXT 5 + INSERT 1 | INSERT 1 |
 | 순서 뒤집기 | TEXT 4 | MOVE 4 (기존 노드 재사용) |
 
-### 2. 실패하면 마지막 화면으로 복구
+### 2. memo와 같은 값 건너뛰기
+
+state는 루트에만 있으므로 무엇이 바뀌든 루트부터 다시 실행됩니다. 그래서 바뀌지 않은 자식을 걸러 내는 일이 중요합니다.
+
+- `memo(Component)`로 감싼 자식을 `child()`로 부르면, 루트의 기록장에서 지난번 props와 결과를 찾습니다. 찾을 때는 key를 쓰고, key가 없으면 몇 번째 호출인지를 씁니다. props가 얕은 비교로 같으면 함수를 부르지 않고 **지난번 VNode 객체**를 그대로 돌려줍니다. diff 첫 줄이 `before === after`이므로 그 아래 비교를 통째로 건너뜁니다.
+- 기록장은 커밋에 성공했을 때만 바꿉니다. 이번에 부르지 않은 자식의 기록은 이때 버려집니다.
+- 핸들러처럼 함수를 props로 넘기면 `useMemo`로 같은 함수를 유지해야 합니다. 렌더마다 새 함수를 만들면 props가 늘 달라 보여서 하나도 건너뛰지 못합니다.
+- `setState`에 지금과 같은 값(`Object.is`)을 넣으면 렌더·diff·patch를 하지 않습니다. 이미 "전체"인 필터를 또 눌러도 아무 일도 일어나지 않습니다.
+- 할 일 4개 중 하나를 체크하면 바뀐 1줄만 다시 실행되고 3줄은 건너뜁니다(인스펙터에 표시).
+
+### 3. 실패하면 마지막 화면으로 복구
 
 Patch는 하나씩 적용하기 직전에 경로·노드 종류·값을 검사합니다. 중간에 실패하면 Phase 1 페이지와 `FunctionComponent` 모두 마지막으로 성공한 VNode로 화면을 되돌리고, 이력과 상태도 이전 값으로 유지합니다.
 
-### 3. Patch 로그와 innerHTML 비용 비교
+### 4. Patch 로그와 innerHTML 비용 비교
 
 Phase 1 페이지 아래에 방금 적용한 Patch 목록과, MutationObserver로 센 "patch가 바꾼 노드 수 vs innerHTML 전체 교체" 수를 보여 줍니다.
 
-### 4. Hooks 인스펙터
+### 5. Hooks 인스펙터
 
-할 일 페이지 오른쪽에 hooks 배열(칸 번호, 종류, 값, deps)과 렌더 번호, 이번 렌더의 Patch 목록을 보여 줍니다. 인스펙터 자체도 미니 리액트로 그립니다(`FunctionComponent.onCommit`).
+할 일 페이지 오른쪽에 hooks 배열(칸 번호, 종류, 값, deps)과 렌더 번호, memo로 건너뛴 자식 수, 이번 렌더의 Patch 목록을 보여 줍니다. 인스펙터 자체도 미니 리액트로 그립니다(`FunctionComponent.onCommit`).
 
 ## 보안: 위험한 입력은 엔진 한 곳에서 막기
 
@@ -164,7 +174,7 @@ VDOM 공백 규칙에도 한계가 있습니다. `<b>a</b>` 줄바꿈 `<i>b</i>`
 
 | 이번 구현 | 실제 React |
 | --- | --- |
-| 루트 하나만 hooks 배열을 갖고, 자식은 상태 없는 함수 | 컴포넌트마다 Fiber 노드(hooks 연결 리스트) |
+| 루트 하나만 hooks 배열을 갖고, 자식은 상태 없는 함수. memo 기록도 루트에 둠 | 컴포넌트마다 Fiber 노드(hooks 연결 리스트) |
 | 렌더를 한 번에 끝까지 재귀 (중간에 멈출 수 없음) | Fiber로 작업을 쪼개 멈추고 이어서 함 |
 | `batch()`로 명시한 구간만 묶음 | React 18부터 이벤트 출처와 상관없이 자동 batching [^batch] |
 | `useEffect`를 patch 직후 동기로 실행 | 보통 화면을 그린 뒤 실행 [^effect] |
@@ -186,7 +196,7 @@ VDOM 공백 규칙에도 한계가 있습니다. `<b>a</b>` 줄바꿈 `<i>b</i>`
 - 과제 제약("Hook은 루트에서만, 자식은 순수 함수")에 맞는 단순한 구조였습니다. jiho 구현의 자식 인스턴스 기능은 이 제약을 지키려면 어차피 걷어내야 했습니다.
 - `core`·`dom`·`component`로 계층이 나뉘어 있고, JSDoc + `tsc`로 계약을 검사합니다.
 - Patch 직전 검사, 실패 복구, Effect 오류 모으기, 무한 갱신 상한처럼 오류를 다루는 부분이 이미 갖춰져 있었습니다.
-- jiho 쪽 강점(key·LIS·MOVE, 엔진 전체 보안 규칙, Patch 로그, Hooks 인스펙터)은 계약을 크게 바꾸지 않고 옮겨 붙일 수 있었습니다.
+- jiho 쪽 강점(key·LIS·MOVE, memo, 같은 값 건너뛰기, 엔진 전체 보안 규칙, Patch 로그, Hooks 인스펙터)은 계약을 크게 바꾸지 않고 옮겨 붙일 수 있었습니다.
 
 ## 트러블슈팅: 자식 컴포넌트도 state를 쓰게 해 봤다가 되돌린 이유
 
@@ -200,17 +210,17 @@ VDOM 공백 규칙에도 한계가 있습니다. `<b>a</b>` 줄바꿈 `<i>b</i>`
 - 상자 짝짓기, 바뀐 자식의 VNode 위치 찾기(트리를 따라가는 O(N) 탐색), 복사한 조상 VNode를 상자 기록에 다시 연결하는 일까지 엔진이 떠안게 되어, 컴포넌트 모듈이 520줄을 넘었습니다.
 - 반대로 sohee 구현은 자식 hook을 막지 않아서, 자식이 `useState`를 부르면 그 칸이 루트의 hooks 배열에 조용히 섞여 들어갔습니다.
 
-**해결.** 합친 엔진은 자식을 `child(Component, props)`로 실행하고, 그동안 hook 호출을 오류로 막습니다. 자식은 props만 받는 순수 함수로 두고, 작은 상태도 루트에 둡니다. 루트가 다시 실행되는 비용은 key 재조정과 `useMemo`로 줄입니다. 남은 한계도 있습니다. `TodoForm(props)`처럼 `child()` 없이 직접 호출하면 루트 몸체와 구분할 수 없어 막지 못합니다.
+**해결.** 합친 엔진은 자식을 `child(Component, props)`로 실행하고, 그동안 hook 호출을 오류로 막습니다. 자식은 props만 받는 순수 함수로 두고, 작은 상태도 루트에 둡니다. 루트가 다시 실행되는 비용은 `memo`와 key 재조정으로 줄입니다. memo는 상태가 아니라 "지난번 props와 결과" 캐시라서 자식 인스턴스 없이 루트의 기록장에 둘 수 있습니다. 남은 한계도 있습니다. `TodoForm(props)`처럼 `child()` 없이 직접 호출하면 루트 몸체와 구분할 수 없어 막지 못합니다.
 
 ## 테스트
 
-`npm test`: 25개 파일, 226개 테스트가 통과합니다. `npm run typecheck`도 통과합니다.
+`npm test`: 25개 파일, 228개 테스트가 통과합니다. `npm run typecheck`도 통과합니다.
 
 | 위치 | 확인하는 것 |
 | --- | --- |
 | `tests/unit` | vnode, from-dom, diff, patch, render, history, useState, useEffect, useMemo, batch, todo-controls |
 | `tests/integration` | 엔진 왕복, 이력, Phase 1 페이지(복구·여러 루트·미래 이력 분기), 컴포넌트 마운트·갱신·Effect·batch·memo, 할 일 데모 |
-| `tests/integration/team-merge.test.js` | 병합으로 더한 기능: key INSERT·MOVE와 노드 재사용, Phase 1·2 공통 위험 입력 차단, 자식 hook 차단, 주석 초안 반영, 막힌 입력 이유 표시, onCommit 순서와 오류 격리 |
+| `tests/integration/team-merge.test.js` | 병합으로 더한 기능: key INSERT·MOVE와 노드 재사용, Phase 1·2 공통 위험 입력 차단, 자식 hook 차단, 주석 초안 반영, 막힌 입력 이유 표시, onCommit 순서와 오류 격리, memo 건너뛰기, 같은 값 setState |
 
 ## 과제 요구사항 대응
 

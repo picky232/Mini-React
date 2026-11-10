@@ -11,7 +11,10 @@ import { replaceDOMTree } from '../dom/render.js';
 /** @typedef {{ kind: 'effect', dependencies: readonly unknown[] | undefined, cleanup: Cleanup | undefined }} EffectSlot */
 /** @typedef {{ kind: 'memo', dependencies: readonly unknown[], value: unknown }} MemoSlot */
 /** @typedef {{ kind: 'state' } | EffectSlot | MemoSlot} HookSlot */
-/** @typedef {() => (() => void)} StateChange */
+/** 상태를 바꾸고 되돌리는 함수를 반환한다. 값이 그대로면 null을 반환해 렌더를 건너뛰게 한다. */
+/** @typedef {() => ((() => void) | null)} StateChange */
+/** @typedef {{ props: object, vnode: VNode }} MemoEntry */
+/** @typedef {Map<Function, Map<string, MemoEntry>>} MemoCache */
 /**
  * @typedef {object} RenderContext
  * @property {HookSlot[]} hooks
@@ -19,6 +22,10 @@ import { replaceDOMTree } from '../dom/render.js';
  * @property {(changeState: StateChange) => void} update
  * @property {(() => void)[]} pendingEffects
  * @property {[number, MemoSlot][]} pendingMemos
+ * @property {MemoCache} memoCache 지난 커밋의 memo 기록장 (읽기 전용)
+ * @property {MemoCache} nextMemoCache 이번 렌더에서 쓴 memo 기록. 커밋에 성공하면 기록장이 된다
+ * @property {Map<Function, number>} memoCalls key 없는 memo 자식이 몇 번째로 불렸는지
+ * @property {number} memoHits memo로 건너뛴 자식 수
  */
 
 const MAX_EFFECT_UPDATE_PASSES = 50;
@@ -65,9 +72,12 @@ function createStateSlot(initialValue, { hooks, update }, index) {
       update(() => {
         // 슬롯의 최신 값으로 갱신하고, DOM 반영 실패 시 이전 값을 복원할 함수를 반환한다.
         const previous = slot.value;
-        slot.value = typeof action === 'function'
+        const next = typeof action === 'function'
           ? (/** @type {StateUpdater<T>} */ (action))(previous)
           : action;
+        // 값이 그대로면 다시 그릴 이유가 없다. 처리 시점의 최신 값과 비교하므로 batch 안의 순서도 지킨다.
+        if (Object.is(previous, next)) return null;
+        slot.value = next;
         return () => { slot.value = previous; };
       });
     },
@@ -176,12 +186,85 @@ export function useMemo(calculate, dependencies) {
  * @returns {VNode}
  */
 export function child(render, props) {
+  const context = activeRender;
+  if (context === null || !MEMOS.has(render)) return runChild(render, props);
+
+  // 1. 누구의 지난번인지 찾기: props.key가 있으면 key로, 없으면 이 렌더에서 몇 번째로 불렸는지로 찾는다.
+  const key = /** @type {{ key?: unknown }} */ (props)?.key;
+  let id = `key:${String(key)}`;
+  if (key === undefined || key === null) {
+    // key 없는 호출끼리만 순서를 센다. key 있는 호출이 섞여도 번호가 밀리지 않는다.
+    const count = context.memoCalls.get(render) ?? 0;
+    context.memoCalls.set(render, count + 1);
+    id = `#${count}`;
+  }
+  const previous = context.memoCache.get(render)?.get(id);
+
+  // 2. 재료(props)가 같으면 함수를 부르지 않고 지난번 VNode 객체를 그대로 쓴다. diff는 첫 줄(같은 객체)에서 끝난다.
+  let vnode;
+  if (previous !== undefined && shallowEqual(previous.props, /** @type {object} */ (props))) {
+    vnode = previous.vnode;
+    context.memoHits += 1;
+  } else {
+    vnode = runChild(render, props);
+  }
+
+  // 3. 이번 렌더에서 쓴 것만 새 기록장에 옮긴다. 화면에서 빠진 자식의 기록은 자연히 버려진다.
+  // shortcut: memo 자식이 건너뛰어지면 그 안에 있던 memo 손자의 기록은 옮겨지지 않아 다음에 한 번 다시 계산한다. 중첩 memo가 많아지면 손자 기록도 함께 옮긴다.
+  let entries = context.nextMemoCache.get(render);
+  if (entries === undefined) context.nextMemoCache.set(render, (entries = new Map()));
+  entries.set(id, { props: /** @type {object} */ (props), vnode });
+  return vnode;
+}
+
+/**
+ * @template P
+ * @param {(props: P) => VNode} render
+ * @param {P} props
+ */
+function runChild(render, props) {
   childDepth += 1;
   try {
     return render(props);
   } finally {
     childDepth -= 1;
   }
+}
+
+/** memo로 감싼 자식 함수 표시. 함수에 필드를 붙이지 않아 원래 함수 모양을 바꾸지 않는다. */
+const MEMOS = new WeakSet();
+
+/**
+ * 자식 컴포넌트를 memo로 감싼다. child()로 부를 때 props가 얕은 비교로 같으면 다시 실행하지 않는다.
+ * 핸들러처럼 함수나 객체를 props로 넘기면 useMemo로 같은 참조를 유지해야 효과가 있다.
+ * @template P
+ * @param {(props: P) => VNode} render
+ * @returns {(props: P) => VNode}
+ */
+export function memo(render) {
+  /** @param {P} props */
+  const memoized = (props) => {
+    // 루트 몸체에서 child() 없이 직접 부르면 기록장도 hook 차단도 거치지 않으므로 막는다.
+    if (activeRender !== null && childDepth === 0) {
+      throw new Error('memo 자식은 child(Component, props)로 불러 주세요.');
+    }
+    return render(props);
+  };
+  MEMOS.add(memoized);
+  return memoized;
+}
+
+/**
+ * props 값을 하나씩 Object.is로 비교한다(얕은 비교). 내용까지 파고들지 않으므로 빠르다.
+ * @param {object} previous
+ * @param {object} next
+ */
+function shallowEqual(previous, next) {
+  const before = /** @type {Record<string, unknown>} */ (previous);
+  const after = /** @type {Record<string, unknown>} */ (next);
+  const keys = Object.keys(before);
+  return keys.length === Object.keys(after).length
+    && keys.every((name) => Object.hasOwn(after, name) && Object.is(before[name], after[name]));
 }
 
 /**
@@ -213,12 +296,16 @@ function applyStateChanges(changes) {
   };
 
   try {
-    for (const change of changes) rollbacks.push(change());
+    for (const change of changes) {
+      const restore = change();
+      if (restore !== null) rollbacks.push(restore);
+    }
   } catch (error) {
     rollback();
     throw error;
   }
-  return rollback;
+  // 묶은 요청이 모두 같은 값이었다면 렌더하지 않는다.
+  return rollbacks.length > 0 ? rollback : null;
 }
 
 /**
@@ -252,9 +339,15 @@ export class FunctionComponent {
 
   #renders = 0;
 
+  /** 마지막으로 커밋에 성공한 렌더의 memo 기록장. 렌더나 Patch가 실패하면 그대로 둔다. */
+  /** @type {MemoCache} */
+  #memoCache = new Map();
+
+  #memoHits = 0;
+
   /**
    * DOM 반영과 그 커밋의 Effect가 끝날 때마다 불린다. Hooks 인스펙터 같은 개발 도구가 쓰며, 여기서 난 오류는 콘솔에만 남긴다.
-   * @type {((info: { patches: import('../core/contracts.js').PatchList, hooks: readonly HookSlot[], renders: number }) => void) | null}
+   * @type {((info: { patches: import('../core/contracts.js').PatchList, hooks: readonly HookSlot[], renders: number, memoHits: number }) => void) | null}
    */
   onCommit = null;
 
@@ -354,6 +447,7 @@ export class FunctionComponent {
       this.#container = null;
       this.#previousVNode = null;
       this.hooks.length = 0;
+      this.#memoCache = new Map();
       runEffectCallbacks(cleanups);
     } finally {
       this.#isCommitting = false;
@@ -393,6 +487,10 @@ export class FunctionComponent {
       update: (changeState) => this.#update(changeState),
       pendingEffects: [],
       pendingMemos: [],
+      memoCache: this.#memoCache,
+      nextMemoCache: new Map(),
+      memoCalls: new Map(),
+      memoHits: 0,
     };
     activeRender = context;
     try {
@@ -406,7 +504,7 @@ export class FunctionComponent {
       if (this.#previousVNode !== null && context.nextIndex !== hookCount) {
         throw new Error('Hook order changed between renders.');
       }
-      return { vnode, pendingEffects: context.pendingEffects, pendingMemos: context.pendingMemos };
+      return { vnode, pendingEffects: context.pendingEffects, pendingMemos: context.pendingMemos, nextMemoCache: context.nextMemoCache, memoHits: context.memoHits };
     } finally {
       activeRender = previousRender;
     }
@@ -430,6 +528,11 @@ export class FunctionComponent {
     try {
       do {
         const rollbackState = nextChange?.();
+        if (nextChange !== undefined && rollbackState === null) {
+          // 바뀐 값이 없으면 렌더·diff·patch를 하지 않고 다음 예약으로 넘어간다.
+          nextChange = queuedUpdates[nextUpdateIndex++];
+          continue;
+        }
         const pendingEffects = this.#commitDOM(container, rollbackState);
         this.#renders += 1;
         const queuedCount = queuedUpdates.length;
@@ -442,7 +545,7 @@ export class FunctionComponent {
           this.#queuedEffectUpdates = null;
           // Effect까지 끝난 hooks를 알린다. 개발 도구의 오류가 이미 끝난 커밋을 깨뜨리지 않게 막는다.
           try {
-            this.onCommit?.({ patches: this.#lastPatches, hooks: this.hooks, renders: this.#renders });
+            this.onCommit?.({ patches: this.#lastPatches, hooks: this.hooks, renders: this.#renders, memoHits: this.#memoHits });
           } catch (error) {
             console.error(error);
           }
@@ -465,19 +568,22 @@ export class FunctionComponent {
 
   /**
    * @param {Element} container
-   * @param {() => void} [rollbackState]
+   * @param {(() => void) | null} [rollbackState]
    */
   #commitDOM(container, rollbackState) {
     const previous = this.#previousVNode;
     const hookCount = this.hooks.length;
     let applyingPatches = false;
     try {
-      const { vnode, pendingEffects, pendingMemos } = this.#renderVNode();
+      const { vnode, pendingEffects, pendingMemos, nextMemoCache, memoHits } = this.#renderVNode();
       // 첫 마운트는 null과 비교해 루트를 삽입하고, 갱신은 마지막으로 적용한 트리와 비교한다.
       const patches = diff(previous, vnode);
       applyingPatches = true;
       applyPatches(container, patches);
       this.#lastPatches = patches;
+      // 커밋에 성공한 렌더의 기록만 다음 비교 기준으로 삼는다. 실패하면 이전 기록장을 그대로 쓴다.
+      this.#memoCache = nextMemoCache;
+      this.#memoHits = memoHits;
       for (const [index, slot] of pendingMemos) {
         this.hooks[index] = slot;
       }

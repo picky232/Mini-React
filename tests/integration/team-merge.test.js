@@ -9,7 +9,7 @@ import { h } from '../../src/core/vnode.js';
 import { domToVNode } from '../../src/dom/from-dom.js';
 import { applyPatches } from '../../src/dom/patch.js';
 import { replaceDOMTree } from '../../src/dom/render.js';
-import { FunctionComponent, child, useEffect, useState } from '../../src/component/function-component.js';
+import { FunctionComponent, child, memo, useEffect, useMemo, useState } from '../../src/component/function-component.js';
 
 const P = { attrs: {}, events: {} };
 const list = (keys) => h('ul', P, keys.map((key) => h('li', { ...P, key }, [key])));
@@ -121,5 +121,44 @@ describe('onCommit', () => {
     expect(order).toEqual(['effect', 'commit']);
     expect(container.innerHTML).toBe('<p>x</p>');
     expect(error).toHaveBeenCalledOnce();
+  });
+});
+
+describe('memo와 같은 값 건너뛰기', () => {
+  test('props가 그대로인 줄은 다시 실행하지 않고, 바뀐 줄만 다시 실행한다', () => {
+    const calls = [];
+    const Row = memo(({ key, done, onToggle }) => { calls.push(key); return h('li', { ...P, key }, [done ? 'v' : 'o']); });
+    let toggle;
+    const container = document.createElement('div');
+    const root = new FunctionComponent(() => {
+      const [done, setDone] = useState(/** @type {string[]} */ ([]));
+      const onToggle = useMemo(() => (key) => setDone((list) => [...list, key]), []);
+      toggle = onToggle;
+      return h('ul', P, ['a', 'b', 'c'].map((key) => child(Row, { key, done: done.includes(key), onToggle })));
+    }, {});
+    root.mount(container);
+    const before = [...container.firstChild.childNodes];
+    calls.length = 0;
+    toggle('b');
+    expect(calls).toEqual(['b']);
+    expect(container.textContent).toBe('ovo');
+    expect([...container.firstChild.childNodes]).toEqual(before);
+  });
+
+  test('setState에 지금과 같은 값을 넣으면 렌더하지 않는다', () => {
+    let renders = 0;
+    let set;
+    const root = new FunctionComponent(() => {
+      renders += 1;
+      const [value, setValue] = useState('all');
+      set = setValue;
+      return h('p', P, [value]);
+    }, {});
+    root.mount(document.createElement('div'));
+    set('all');
+    set((value) => value);
+    expect(renders).toBe(1);
+    set('done');
+    expect(renders).toBe(2);
   });
 });

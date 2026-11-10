@@ -3,7 +3,7 @@ import { h } from '../core/vnode.js';
 import { describePatch } from './patch-report.js';
 
 /** @typedef {import('../core/contracts.js').PatchList} PatchList */
-/** @typedef {{ patches: PatchList, hooks: readonly { kind: string }[], renders: number }} CommitInfo */
+/** @typedef {{ patches: PatchList, hooks: readonly { kind: string }[], renders: number, memoHits: number }} CommitInfo */
 
 const HOOK_NAME = /** @type {Record<string, string>} */ ({ state: 'useState', memo: 'useMemo', effect: 'useEffect' });
 /** @param {string} text */
@@ -43,7 +43,7 @@ function Inspector({ info }) {
     : [h('li', P, ['바뀐 부분이 없어 DOM을 건드리지 않았어요.'])];
   return h('div', { attrs: { class: 'inspector-body' }, events: {} }, [
     h('p', { attrs: { class: 'inspector-sub' }, events: {} }, [
-      `렌더 #${info.renders} · Patch ${info.patches.length}건. 루트 함수는 렌더마다 처음부터 다시 실행되지만, 상태는 함수 바깥의 hooks 배열에 남아 호출 순서(#)로 자기 칸을 찾아요.`,
+      `렌더 #${info.renders} · Patch ${info.patches.length}건 · memo로 건너뛴 자식 ${info.memoHits}개. 루트 함수는 렌더마다 처음부터 다시 실행되지만, 상태는 함수 바깥의 hooks 배열에 남아 호출 순서(#)로 자기 칸을 찾아요.`,
     ]),
     h('table', { attrs: { class: 'hooks' }, events: {} }, [
       h('thead', P, [h('tr', P, [h('th', P, ['#']), h('th', P, ['hook']), h('th', P, ['값']), h('th', P, ['deps'])])]),
@@ -65,7 +65,7 @@ export function attachInspector(target, container) {
   inspector.mount(container);
   target.onCommit = (info) => {
     // hooks 배열은 계속 바뀌므로 지금 모습을 복사해 둔다.
-    latest = { patches: info.patches, hooks: info.hooks.map((hook) => ({ ...hook })), renders: info.renders };
+    latest = { patches: info.patches, hooks: info.hooks.map((hook) => ({ ...hook })), renders: info.renders, memoHits: info.memoHits };
     inspector.update();
   };
   return () => {

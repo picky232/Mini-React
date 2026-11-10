@@ -1,4 +1,4 @@
-import { FunctionComponent, child, useEffect, useMemo, useState } from '../component/function-component.js';
+import { FunctionComponent, child, memo, useEffect, useMemo, useState } from '../component/function-component.js';
 import { h } from '../core/vnode.js';
 import { submitTextField, syncDocumentTitle } from '../dom/todo-controls.js';
 import { attachInspector } from './inspector.js';
@@ -37,22 +37,28 @@ function TodoFilters({ selected, onSelect }) {
     }, [label])));
 }
 
+/**
+ * 할 일 한 줄. memo로 감싸서, 이 줄의 재료(props)가 그대로면 다시 실행하지 않는다.
+ * key로 항목을 짝지어 중간 항목을 지워도 뒤 항목의 DOM을 다시 쓰지 않는다.
+ * @type {(props: { key: number, title: string, completed: boolean, onToggle: (id: number) => void, onRemove: (id: number) => void }) => import('../core/contracts.js').VNode}
+ */
+const TodoItem = memo(({ key: id, title, completed, onToggle, onRemove }) => h('li', { attrs: { class: 'todo-row' }, events: {}, key: id }, [
+  h('button', {
+    attrs: { type: 'button', class: 'todo-toggle', 'aria-pressed': String(completed), 'aria-label': `${title} 완료 여부` },
+    events: { click: () => onToggle(id) },
+  }, [
+    h('span', { attrs: { class: 'todo-mark', 'aria-hidden': 'true' }, events: {} }, [completed ? '✓' : '○']),
+    h('span', { attrs: { class: 'todo-text' }, events: {} }, [title]),
+  ]),
+  h('button', {
+    attrs: { type: 'button', class: 'todo-remove', 'aria-label': `${title} 삭제` },
+    events: { click: () => onRemove(id) },
+  }, ['삭제']),
+]));
+
 /** @param {{ items: readonly Todo[], onToggle: (id: number) => void, onRemove: (id: number) => void }} props */
 function TodoList({ items, onToggle, onRemove }) {
-  // key로 항목을 짝지어 중간 항목을 지워도 뒤 항목의 DOM을 다시 쓰지 않는다.
-  const rows = items.map(({ id, title, completed }) => h('li', { attrs: { class: 'todo-row' }, events: {}, key: id }, [
-    h('button', {
-      attrs: { type: 'button', class: 'todo-toggle', 'aria-pressed': String(completed), 'aria-label': `${title} 완료 여부` },
-      events: { click: () => onToggle(id) },
-    }, [
-      h('span', { attrs: { class: 'todo-mark', 'aria-hidden': 'true' }, events: {} }, [completed ? '✓' : '○']),
-      h('span', { attrs: { class: 'todo-text' }, events: {} }, [title]),
-    ]),
-    h('button', {
-      attrs: { type: 'button', class: 'todo-remove', 'aria-label': `${title} 삭제` },
-      events: { click: () => onRemove(id) },
-    }, ['삭제']),
-  ]));
+  const rows = items.map(({ id, title, completed }) => child(TodoItem, { key: id, title, completed, onToggle, onRemove }));
   return h('ul', { attrs: { class: 'todo-list', 'aria-label': '할 일 목록' }, events: {} }, rows.length > 0 ? rows : [
     h('li', { attrs: { class: 'todo-empty' }, events: {} }, ['표시할 할 일이 없어요.']),
   ]);
@@ -73,12 +79,16 @@ function TodoApp({ setTitle }) {
     // 목록과 다음 ID를 한 번에 갱신해 제목이 같은 할 일도 구분한다.
     setTodos(({ items, nextId }) => ({ items: [...items, { id: nextId, title, completed: false }], nextId: nextId + 1 }));
   });
-  /** @param {number} id */
-  const onToggle = (id) => setTodos((state) => ({
-    ...state, items: state.items.map((item) => item.id === id ? { ...item, completed: !item.completed } : item),
-  }));
-  /** @param {number} id */
-  const onRemove = (id) => setTodos((state) => ({ ...state, items: state.items.filter((item) => item.id !== id) }));
+  // memo 자식에게 넘기는 핸들러는 같은 함수를 계속 써야 한다. 렌더마다 새로 만들면 props가 늘 달라 보인다.
+  // setTodos는 렌더마다 같은 함수이고, 함수형 업데이트로 최신 목록을 받으므로 deps가 []여도 안전하다.
+  const { onToggle, onRemove } = useMemo(() => ({
+    /** @param {number} id */
+    onToggle: (id) => setTodos((state) => ({
+      ...state, items: state.items.map((item) => item.id === id ? { ...item, completed: !item.completed } : item),
+    })),
+    /** @param {number} id */
+    onRemove: (id) => setTodos((state) => ({ ...state, items: state.items.filter((item) => item.id !== id) })),
+  }), []);
 
   return h('section', { attrs: { class: 'todo-card', 'aria-label': '할 일 관리' }, events: {} }, [
     child(TodoForm, { onSubmit }),

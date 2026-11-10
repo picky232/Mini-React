@@ -22,7 +22,7 @@
 | --- | --- |
 | `update(): void` | 마운트한 컨테이너에서 루트 함수를 다시 실행한다. 기존 `diff(previousVNode, nextVNode)`와 `applyPatches()`를 사용하고 적용이 성공하면 `previousVNode`를 갱신한다. 마운트 전이나 갱신 도중 같은 인스턴스에 재진입하면 `Error`가 발생한다. |
 | `useState(initialValue)` | `FunctionComponent`와 같은 모듈에서 가져온다. 루트 렌더 함수 안에서 호출하면 `[state, setState]`를 반환한다. 초기값은 슬롯을 처음 만들 때 사용하며 함수도 초기값으로 저장할 수 있다. |
-| `setState(valueOrUpdater): void` | 값을 받거나 최신 슬롯 값을 입력으로 받는 순수 updater를 실행하고 갱신한다. 함수를 상태로 저장하려면 해당 함수를 반환하는 updater를 전달한다. 일반 이벤트에서는 즉시 갱신하고, `batch()` 안이나 DOM 반영 직후 실행하는 Effect와 cleanup에서는 갱신을 예약한다. |
+| `setState(valueOrUpdater): void` | 값을 받거나 최신 슬롯 값을 입력으로 받는 순수 updater를 실행하고 갱신한다. 함수를 상태로 저장하려면 해당 함수를 반환하는 updater를 전달한다. 처리 시점의 값과 `Object.is`로 같으면 렌더하지 않는다. 일반 이벤트에서는 즉시 갱신하고, `batch()` 안이나 DOM 반영 직후 실행하는 Effect와 cleanup에서는 갱신을 예약한다. |
 
 - 렌더링마다 슬롯 인덱스를 0부터 센다. 같은 순서로 호출하면 값과 setter를 같은 인스턴스의 배열에서 다시 읽는다. 현재 렌더 문맥은 루트 함수 실행 중에만 유지된다. Hook은 루트 함수 최상위에서 항상 같은 순서로 호출하고, 자식에는 값과 핸들러를 props로 전달한다.
 - Patch 적용에 실패하면 DOM 계층이 마지막으로 성공한 VNode로 컨테이너의 자식 트리를 다시 만든다. 복구된 자식 노드는 새로 생성되며, 저장된 VNode의 이벤트 리스너도 다시 등록된다. `previousVNode`는 마지막 성공 값을 유지하고 원래 적용 오류는 호출자에게 전달한다. setter가 시작한 렌더링이나 Patch 적용이 실패하면 슬롯 값도 직전 값으로 돌아간다.
@@ -64,7 +64,9 @@
 | 인터페이스 | 계약 |
 | --- | --- |
 | `child(render, props): VNode` | 자식 컴포넌트를 실행한다. 실행하는 동안 `useState`·`useEffect`·`useMemo`와 setter 호출은 `Error`다. 자식은 props만 받아 VNode를 돌려주는 순수 함수다. |
-| `component.onCommit` | DOM 반영에 성공하고 그 커밋의 Effect가 끝날 때마다 `{ patches, hooks, renders }`로 불린다. Hooks 인스펙터 같은 개발 도구용이며 기본값은 `null`이다. 여기서 난 오류는 `console.error`로만 남기고 커밋을 되돌리지 않는다. |
+| `memo(render): render` | 자식을 memo로 표시한다. `child(memoRender, props)`는 루트 기록장에서 같은 자식(`props.key`, 없으면 이 렌더에서의 호출 순서)의 지난번 props를 찾아, 얕은 비교로 같으면 함수를 부르지 않고 지난번 VNode 객체를 반환한다. 기록장은 커밋에 성공했을 때만 이번 렌더에서 쓴 기록으로 바뀌고, 실패하거나 `unmount()`하면 바뀌지 않거나 비워진다. |
+| `setState(sameValue)` | 처리 시점의 값과 `Object.is`로 같으면 렌더하지 않는다. `batch()` 안에서는 모든 요청이 같은 값일 때만 렌더를 건너뛴다. |
+| `component.onCommit` | DOM 반영에 성공하고 그 커밋의 Effect가 끝날 때마다 `{ patches, hooks, renders, memoHits }`로 불린다. Hooks 인스펙터 같은 개발 도구용이며 기본값은 `null`이다. 여기서 난 오류는 `console.error`로만 남기고 커밋을 되돌리지 않는다. |
 
 - `TodoForm(props)`처럼 `child()` 없이 직접 호출한 자식은 루트 몸체와 구분할 수 없어 막지 못한다. 자식은 항상 `child()`로 부른다.
 - 목록 항목은 `h('li', { attrs, events, key: id }, ...)`처럼 key를 넘기면 diff가 위치 대신 key로 짝짓는다.
