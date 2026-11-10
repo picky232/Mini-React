@@ -65,6 +65,15 @@
       </div>
 
       <p id="edit-help" class="hint">스위치를 켜고 테스트 영역의 HTML을 수정해 보세요. 끄면 반영 전 모습을 확인할 수 있어요.</p>
+
+      <section class="report" aria-labelledby="report-title">
+        <h2 id="report-title">마지막 반영 결과</h2>
+        <div class="report-stats">
+          <p class="report-stat"><span>바뀐 노드 수</span><strong id="patch-nodes">-</strong><small>innerHTML 전체 교체 <span id="inner-nodes">-</span></small></p>
+          <p class="report-stat"><span>MutationRecord 수</span><strong id="patch-records">-</strong><small>innerHTML 전체 교체 <span id="inner-records">-</span></small></p>
+        </div>
+        <ol id="patch-log" class="patch-log" aria-label="Patch 로그"></ol>
+      </section>
     </main>
 
     <script type="module">
@@ -81,6 +90,13 @@
           toggle: document.getElementById('view-toggle'),
           actualCode: document.getElementById('actual-code'),
           draftCode: document.getElementById('test-code'),
+        },
+        report: {
+          log: document.getElementById('patch-log'),
+          patchNodes: document.getElementById('patch-nodes'),
+          innerNodes: document.getElementById('inner-nodes'),
+          patchRecords: document.getElementById('patch-records'),
+          innerRecords: document.getElementById('inner-records'),
         },
       });
     </script>

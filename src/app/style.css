@@ -157,3 +157,24 @@ button:focus-visible, .editor:focus-visible { outline: 3px solid #6556d4; outlin
   .panes { grid-template-columns: minmax(0, 1fr); }
   .surface { min-height: 205px; }
 }
+
+.report {
+  margin-top: 24px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #dce0ed;
+  border-radius: 14px;
+}
+.report h2 { margin: 0 0 12px; font-size: 1rem; }
+.report-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.report-stat { display: grid; gap: 2px; margin: 0; padding: 12px; background: #f4f5fa; border-radius: 10px; }
+.report-stat span:first-child { color: #515a72; font-size: 0.85rem; }
+.report-stat strong { font-size: 1.6rem; }
+.report-stat small { color: #515a72; }
+.patch-log { display: grid; gap: 6px; margin: 12px 0 0; padding-left: 1.4rem; }
+.patch-log li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; overflow-wrap: anywhere; }
+.tag { padding: 1px 6px; border-radius: 6px; background: #eef0f8; color: #4841a1; font-size: 0.75rem; font-weight: 700; }
+.tag-REMOVE { background: #fdecec; color: #a32d2d; }
+.tag-INSERT { background: #e6f4ea; color: #2b6a3a; }
+.tag-MOVE { background: #fff3db; color: #854f0b; }
+.log-detail { color: #515a72; }

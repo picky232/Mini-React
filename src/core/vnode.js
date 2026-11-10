@@ -1,3 +1,5 @@
+import { assertSafeAttribute, assertSafeTag } from './security.js';
+
 /** @typedef {import('./contracts.js').VNode} VNode */
 
 /**
@@ -24,6 +26,7 @@ export function h(tag, props, children = []) {
     || ['template', 'svg', 'math'].includes(tag)) {
     throw new TypeError('Only lowercase HTML tags without template are supported.');
   }
+  assertSafeTag(tag);
 
   // props가 없는 경우에도 attrs와 events를 갖도록 구조를 통일한다.
   const source = props === null ? { attrs: {}, events: {} } : props;
@@ -34,9 +37,15 @@ export function h(tag, props, children = []) {
   }
   // 속성은 문자열로 보존한다. onclick 같은 인라인 코드는 events와 구분한다.
   for (const [name, value] of Object.entries(source.attrs)) {
-    if (!name || /^on/i.test(name) || typeof value !== 'string') {
+    if (!name || typeof value !== 'string') {
       throw new TypeError('Attributes must be strings; use events for listeners.');
     }
+    assertSafeAttribute(name, value);
+  }
+  // key는 형제 목록 안에서 이 노드의 정체성이다. 속성이 아니므로 DOM에는 쓰지 않는다.
+  const { key } = /** @type {{ key?: unknown }} */ (source);
+  if (key !== undefined && typeof key !== 'string' && typeof key !== 'number') {
+    throw new TypeError('Key must be a string or number.');
   }
   // 이벤트에는 문자열 코드가 아닌 함수 참조를 저장한다. 이름은 click처럼 쓴다.
   for (const [name, listener] of Object.entries(source.events)) {
@@ -72,10 +81,12 @@ export function h(tag, props, children = []) {
 
   // 속성 객체는 복사해 호출자가 원본 props를 바꿔도 결과에 전파되지 않게 한다.
   // 이벤트 함수와 기존 자식 VNode는 불변 값으로 취급하며 참조를 유지한다.
-  return {
+  /** @type {import('./contracts.js').ElementVNode} */
+  const vnode = {
     kind: 'element',
     tag,
     props: { attrs: { ...source.attrs }, events: { ...source.events } },
     children: normalized,
   };
+  return key === undefined ? vnode : { ...vnode, key: String(key) };
 }

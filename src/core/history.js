@@ -15,12 +15,15 @@ function copyVNode(node) {
     throw new TypeError('Expected an ElementVNode or TextVNode.');
   }
 
-  return {
+  /** @type {import('./contracts.js').ElementVNode} */
+  const copy = {
     kind: 'element',
     tag: node.tag,
     props: { attrs: { ...node.props.attrs }, events: { ...node.props.events } },
     children: node.children.map(copyVNode),
   };
+  // key가 빠지면 이력끼리 비교할 때 위치 비교로 돌아가므로 함께 복사한다.
+  return node.key === undefined ? copy : { ...copy, key: node.key };
 }
 
 /**

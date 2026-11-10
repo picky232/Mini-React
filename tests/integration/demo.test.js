@@ -224,7 +224,7 @@ test('Undo 이후 새 변경을 반영하면 Redo는 새 분기만 따라간다'
 
 test.each([
   { name: '여러 루트', edit: (draft) => draft.append(document.createElement('p')) },
-  { name: '주석 노드', edit: (draft) => draft.firstChild.append(document.createComment('unsupported')) },
+  { name: '인라인 핸들러 속성', edit: (draft) => draft.firstChild.setAttribute('onclick', 'alert(1)') },
 ])('$name를 포함한 초안은 저장하지 않고 마지막 스냅샷으로 복구한다', ({ edit }) => {
   const { actual, draft, patch, undo, redo, status, editTitle } = mountDemo();
   editTitle('B');
@@ -250,8 +250,8 @@ test('Patch 중간에 실패하면 이미 적용한 변경을 되돌리고 이�
   const root = actual.firstChild;
   const title = actual.querySelector('h3').firstChild;
   let titleAtFailure;
-  // 마지막 li를 지우면 그 뒤의 공백 Text가 같은 위치에 와서 REPLACE가 발생한다.
-  const replace = vi.spyOn(actual.querySelector('li:last-child'), 'replaceWith').mockImplementationOnce(() => {
+  // 들여쓰기 공백은 로드할 때 지워지므로 마지막 li를 지우면 REMOVE가 발생한다.
+  const replace = vi.spyOn(actual.querySelector('li:last-child'), 'remove').mockImplementationOnce(() => {
     titleAtFailure = title.data;
     throw new Error('실제 영역 적용 실패');
   });

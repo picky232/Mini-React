@@ -1,20 +1,19 @@
 // @vitest-environment jsdom
 
 import { describe, expect, test, vi } from 'vitest';
-import { domToVNode } from '../../src/dom/from-dom.js';
+import { domToVNode, normalizeDOM } from '../../src/dom/from-dom.js';
 
 describe('domToVNode', () => {
   test.each(['hello', '', ' \n\t '])('Text 노드 %j를 정확히 읽는다', (value) => {
     expect(domToVNode(document.createTextNode(value))).toEqual({ kind: 'text', value });
   });
 
-  test('속성과 중첩 요소·공백 텍스트를 자식 순서대로 읽는다', () => {
+  test('속성과 중첩 요소를 읽고, 줄바꿈 공백은 버리고 띄어쓰기는 남긴다', () => {
     const element = document.createElement('section');
     element.innerHTML = '\n <button class="primary" disabled data-id="7" style="color: red;">안녕 <em>React</em></button> ';
     expect(domToVNode(element)).toEqual({
       kind: 'element', tag: 'section', props: { attrs: {}, events: {} },
       children: [
-        { kind: 'text', value: '\n ' },
         {
           kind: 'element', tag: 'button',
           props: { attrs: { class: 'primary', disabled: '', 'data-id': '7', style: 'color: red;' }, events: {} },
@@ -28,11 +27,10 @@ describe('domToVNode', () => {
     });
   });
 
-  test('빈 요소와 연속된 빈 텍스트 노드를 합치거나 생략하지 않는다', () => {
+  test('빈 텍스트는 버리고 띄어쓰기만 있는 텍스트는 남긴다', () => {
     const div = document.createElement('div');
     div.append(document.createTextNode(''), document.createTextNode(' '), document.createElement('br'));
     expect(domToVNode(div).children).toEqual([
-      { kind: 'text', value: '' },
       { kind: 'text', value: ' ' },
       { kind: 'element', tag: 'br', props: { attrs: {}, events: {} }, children: [] },
     ]);
@@ -73,12 +71,31 @@ describe('domToVNode', () => {
     expect(() => domToVNode(document.createComment('note'))).toThrow(TypeError);
   });
 
-  test('중첩된 주석도 조용히 생략하지 않고 원본을 유지한 채 거절한다', () => {
+  test('중첩된 주석은 버리고 양옆 텍스트를 합치며 원본 DOM은 바꾸지 않는다', () => {
     const div = document.createElement('div');
     div.innerHTML = '<span>before<!--note-->after</span>';
     const before = div.innerHTML;
-    expect(() => domToVNode(div)).toThrow(TypeError);
+    expect(domToVNode(div).children[0].children).toEqual([{ kind: 'text', value: 'beforeafter' }]);
     expect(div.innerHTML).toBe(before);
+  });
+
+  test('pre·textarea 안의 줄바꿈 공백은 그대로 남긴다', () => {
+    const div = document.createElement('div');
+    div.innerHTML = '<pre>\n<b>a</b>\n</pre>\n<textarea>\n\n</textarea>';
+    const [pre, textarea] = domToVNode(div).children;
+    expect(pre.children.map((child) => child.kind)).toEqual(['element', 'text']);
+    expect(pre.children[1].value).toBe('\n');
+    expect(textarea.children).toEqual([{ kind: 'text', value: '\n' }]);
+  });
+
+  test('normalizeDOM은 버린 노드를 실제 DOM에서도 지워 childNodes와 VNode 순서를 맞춘다', () => {
+    const div = document.createElement('div');
+    div.innerHTML = '\n  <p>a<!--x-->b</p>\n  <span> </span>\n';
+    const vnode = domToVNode(div);
+    normalizeDOM(div);
+    expect(div.innerHTML).toBe('<p>ab</p><span> </span>');
+    expect(div.childNodes).toHaveLength(vnode.children.length);
+    expect(domToVNode(div)).toEqual(vnode);
   });
 
   test.each([

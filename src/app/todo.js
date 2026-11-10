@@ -1,6 +1,7 @@
-import { FunctionComponent, useEffect, useMemo, useState } from '../component/function-component.js';
+import { FunctionComponent, child, useEffect, useMemo, useState } from '../component/function-component.js';
 import { h } from '../core/vnode.js';
 import { submitTextField, syncDocumentTitle } from '../dom/todo-controls.js';
+import { attachInspector } from './inspector.js';
 
 /** @typedef {'all' | 'completed' | 'active'} Filter */
 /** @typedef {{ id: number, title: string, completed: boolean }} Todo */
@@ -38,7 +39,8 @@ function TodoFilters({ selected, onSelect }) {
 
 /** @param {{ items: readonly Todo[], onToggle: (id: number) => void, onRemove: (id: number) => void }} props */
 function TodoList({ items, onToggle, onRemove }) {
-  const rows = items.map(({ id, title, completed }) => h('li', { attrs: { class: 'todo-row' }, events: {} }, [
+  // key로 항목을 짝지어 중간 항목을 지워도 뒤 항목의 DOM을 다시 쓰지 않는다.
+  const rows = items.map(({ id, title, completed }) => h('li', { attrs: { class: 'todo-row' }, events: {}, key: id }, [
     h('button', {
       attrs: { type: 'button', class: 'todo-toggle', 'aria-pressed': String(completed), 'aria-label': `${title} 완료 여부` },
       events: { click: () => onToggle(id) },
@@ -79,16 +81,26 @@ function TodoApp({ setTitle }) {
   const onRemove = (id) => setTodos((state) => ({ ...state, items: state.items.filter((item) => item.id !== id) }));
 
   return h('section', { attrs: { class: 'todo-card', 'aria-label': '할 일 관리' }, events: {} }, [
-    TodoForm({ onSubmit }),
-    TodoFilters({ selected: filter, onSelect: setFilter }),
+    child(TodoForm, { onSubmit }),
+    child(TodoFilters, { selected: filter, onSelect: setFilter }),
     h('p', { attrs: { class: 'todo-summary', role: 'status' }, events: {} }, [`전체 ${items.length}개 중 ${completedCount}개 완료`]),
-    TodoList({ items: visibleItems, onToggle, onRemove }),
+    child(TodoList, { items: visibleItems, onToggle, onRemove }),
   ]);
 }
 
-/** @param {HTMLElement} container */
-export function startTodo(container) {
+/**
+ * @param {HTMLElement} container
+ * @param {HTMLElement} [inspectorContainer] 주면 Hooks 인스펙터를 함께 띄운다.
+ */
+export function startTodo(container, inspectorContainer) {
   const component = new FunctionComponent(TodoApp, { setTitle: (title) => syncDocumentTitle(container, title) });
+  const detach = inspectorContainer ? attachInspector(component, inspectorContainer) : () => {};
   component.mount(container);
-  return () => component.unmount();
+  return () => {
+    try {
+      component.unmount();
+    } finally {
+      detach();
+    }
+  };
 }

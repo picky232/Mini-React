@@ -1,5 +1,6 @@
 import { createDOM } from './render.js';
 import { setDOMEvent } from './events.js';
+import { assertSafeAttribute } from '../core/security.js';
 
 /** @typedef {import('../core/contracts.js').NodePath} NodePath */
 /** @typedef {import('../core/contracts.js').Patch} Patch */
@@ -76,9 +77,10 @@ function applyProps(element, changes) {
   const events = Object.entries(setEvents);
   // 설정과 삭제가 충돌하거나 값의 형태가 잘못된 경우 DOM을 변경하기 전에 거절한다.
   for (const [name, value] of attributes) {
-    if (!name || /^on/i.test(name) || typeof value !== 'string') {
+    if (!name || typeof value !== 'string') {
       throw new TypeError('Attributes must be strings. Use events for listeners.');
     }
+    assertSafeAttribute(name, value);
   }
   for (const name of removeAttrs) {
     if (typeof name !== 'string' || !name || Object.hasOwn(setAttrs, name)) {
@@ -143,6 +145,18 @@ function applyPatch(container, root, patch) {
       if (anchor) requireSupportedNode(anchor);
       parent.insertBefore(createDOM(patch.node, parent.ownerDocument), anchor);
     }
+    return;
+  }
+
+  if (patch.type === 'MOVE') {
+    // 지우고 새로 만들지 않고 이미 있는 노드를 옮긴다. insertBefore는 원래 자리에서 빼서 끼운다.
+    const parent = requireElement(resolveNode(root, path));
+    const { from, to } = patch;
+    const length = parent.childNodes.length;
+    if (!Number.isInteger(from) || !Number.isInteger(to)) throw new TypeError('MOVE requires integer indices.');
+    if (from < 0 || from >= length || to < 0 || to > length) throw new RangeError('Invalid move index.');
+    const node = requireSupportedNode(/** @type {Node} */ (parent.childNodes[from]));
+    parent.insertBefore(node, parent.childNodes[to] ?? null);
     return;
   }
 

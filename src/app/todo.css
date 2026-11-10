@@ -1,4 +1,4 @@
-.todo-page { max-width: 680px; }
+.todo-page { max-width: 1120px; }
 .todo-card {
   padding: clamp(16px, 4vw, 28px);
   border: 1px solid #dce0ed;
@@ -37,3 +37,15 @@
 .todo-toggle[aria-pressed="true"] .todo-text { color: #596278; text-decoration: line-through; }
 .todo-remove { flex: none; color: #a22738; }
 .todo-empty { padding: 16px 12px; border-radius: 8px; background: #f9faff; color: #515a72; text-align: center; }
+
+.todo-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .todo-layout { grid-template-columns: 1fr; } }
+.inspector { padding: 16px; background: #fff; border: 1px solid #dce0ed; border-radius: 14px; }
+.inspector h2 { margin: 0 0 8px; font-size: 1rem; }
+.inspector-sub { margin: 0 0 12px; color: #515a72; font-size: 0.85rem; }
+.hooks { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.hooks th, .hooks td { padding: 6px 8px; border-bottom: 1px solid #eceef5; text-align: left; overflow-wrap: anywhere; }
+.tag-state { background: #eef0f8; }
+.tag-memo { background: #e6f4ea; color: #2b6a3a; }
+.tag-effect { background: #fff3db; color: #854f0b; }
+.hooks td:nth-child(2) { white-space: nowrap; }

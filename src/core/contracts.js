@@ -9,18 +9,21 @@
 /**
  * 이벤트 이름은 click 등 소문자이며 on 접두사를 붙이지 않는다.
  * Phase 1의 DOM 역변환에서는 events가 빈 객체다.
- * @typedef {Readonly<{ attrs: Attributes, events: Events }>} VNodeProps
+ * key는 h()의 입력에서만 받아 ElementVNode.key로 옮긴다. DOM 속성이 아니다.
+ * @typedef {Readonly<{ attrs: Attributes, events: Events, key?: string | number }>} VNodeProps
  */
 
 /** @typedef {Readonly<{ kind: 'text', value: string }>} TextVNode */
 
 /**
  * tag는 소문자 HTML 태그, children은 텍스트를 포함한 순서 있는 자식 목록이다.
+ * key는 형제 사이의 정체성이다. 형제 전부에 서로 다른 key가 있으면 diff가 위치 대신 key로 짝짓는다.
  * @typedef {Readonly<{
  *   kind: 'element',
  *   tag: string,
  *   props: VNodeProps,
- *   children: ReadonlyArray<VNode>
+ *   children: ReadonlyArray<VNode>,
+ *   key?: string
  * }>} ElementVNode
  */
 
@@ -49,7 +52,12 @@
 /** @typedef {Readonly<{ type: 'REPLACE', path: NodePath, node: VNode }>} ReplacePatch */
 /** @typedef {Readonly<{ type: 'TEXT', path: NodePath, value: string }>} TextPatch */
 /** @typedef {Readonly<{ type: 'PROPS', path: NodePath, changes: PropsDelta }>} PropsPatch */
-/** @typedef {InsertPatch | RemovePatch | ReplacePatch | TextPatch | PropsPatch} Patch */
+/**
+ * key 목록에서만 나온다. path는 부모이고, 지금 from번 자식을 지금 to번 자식 앞으로 옮긴다.
+ * to가 자식 수와 같으면 맨 뒤로 옮긴다. 노드를 새로 만들지 않는다.
+ * @typedef {Readonly<{ type: 'MOVE', path: NodePath, from: number, to: number }>} MovePatch
+ */
+/** @typedef {InsertPatch | RemovePatch | ReplacePatch | TextPatch | PropsPatch | MovePatch} Patch */
 /** @typedef {ReadonlyArray<Patch>} PatchList */
 
 /**
@@ -83,6 +91,13 @@
  *     toggle: HTMLButtonElement,
  *     actualCode: HTMLTextAreaElement,
  *     draftCode: HTMLTextAreaElement
+ *   }>,
+ *   report?: Readonly<{
+ *     log: HTMLElement,
+ *     patchNodes: HTMLElement,
+ *     innerNodes: HTMLElement,
+ *     patchRecords: HTMLElement,
+ *     innerRecords: HTMLElement
  *   }>
  * }>} DemoElements
  */

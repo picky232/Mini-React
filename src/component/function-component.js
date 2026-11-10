@@ -27,8 +27,14 @@ const MAX_EFFECT_UPDATE_PASSES = 50;
 /** @type {RenderContext | null} */
 let activeRender = null;
 
+// child()로 자식을 실행하는 깊이. 0보다 크면 지금 실행 중인 함수는 자식이므로 Hook을 막는다.
+let childDepth = 0;
+
 /** @param {string} hook */
 function requireRender(hook) {
+  if (childDepth > 0) {
+    throw new Error(`${hook}는 루트 컴포넌트에서만 쓸 수 있어요. 자식에는 상태 대신 props로 값과 핸들러를 넘겨 주세요.`);
+  }
   if (activeRender === null) {
     throw new Error(`${hook} requires a rendering root component.`);
   }
@@ -49,7 +55,7 @@ function createStateSlot(initialValue, { hooks, update }, index) {
     kind: 'state',
     value: initialValue,
     setState(action) {
-      if (activeRender !== null) {
+      if (activeRender !== null || childDepth > 0) {
         throw new Error('Cannot set state during render.');
       }
       if (hooks[index] !== slot) {
@@ -161,6 +167,24 @@ export function useMemo(calculate, dependencies) {
 }
 
 /**
+ * 자식 컴포넌트를 실행한다. 자식은 props만 받아 VNode를 돌려주는 순수 함수여야 하므로
+ * 실행하는 동안 Hook 호출을 막는다. 상태는 루트에 두고 props로 내려 준다(Lifting State Up).
+ * shortcut: TodoForm(props)처럼 직접 호출하면 루트 몸체와 구분할 수 없어 막지 못한다. 자식은 child()로 부른다.
+ * @template P
+ * @param {(props: P) => VNode} render
+ * @param {P} props
+ * @returns {VNode}
+ */
+export function child(render, props) {
+  childDepth += 1;
+  try {
+    return render(props);
+  } finally {
+    childDepth -= 1;
+  }
+}
+
+/**
  * 한 콜백이 실패해도 같은 커밋이나 해제에 속한 나머지 콜백을 실행한 뒤 오류를 전달한다.
  * @param {readonly (() => void)[]} callbacks
  */
@@ -221,6 +245,18 @@ export class FunctionComponent {
 
   /** @type {StateChange[] | null} */
   #batchedUpdates = null;
+
+  /** 마지막 커밋이 DOM에 적용한 Patch 목록. onCommit에 전달한다. */
+  /** @type {import('../core/contracts.js').PatchList} */
+  #lastPatches = [];
+
+  #renders = 0;
+
+  /**
+   * DOM 반영과 그 커밋의 Effect가 끝날 때마다 불린다. Hooks 인스펙터 같은 개발 도구가 쓰며, 여기서 난 오류는 콘솔에만 남긴다.
+   * @type {((info: { patches: import('../core/contracts.js').PatchList, hooks: readonly HookSlot[], renders: number }) => void) | null}
+   */
+  onCommit = null;
 
   /**
    * 마지막으로 DOM에 반영한 VNode다. 최초 마운트 전에는 null이며 이후 Diff의 비교 기준이 된다.
@@ -395,12 +431,22 @@ export class FunctionComponent {
       do {
         const rollbackState = nextChange?.();
         const pendingEffects = this.#commitDOM(container, rollbackState);
+        this.#renders += 1;
         const queuedCount = queuedUpdates.length;
 
         // DOM 반영 뒤에만 예약을 받는다. 모든 cleanup과 의존성 저장이 끝나면 큐를 이어서 처리한다.
         this.#queuedEffectUpdates = queuedUpdates;
-        runEffectCallbacks(pendingEffects);
-        this.#queuedEffectUpdates = null;
+        try {
+          runEffectCallbacks(pendingEffects);
+        } finally {
+          this.#queuedEffectUpdates = null;
+          // Effect까지 끝난 hooks를 알린다. 개발 도구의 오류가 이미 끝난 커밋을 깨뜨리지 않게 막는다.
+          try {
+            this.onCommit?.({ patches: this.#lastPatches, hooks: this.hooks, renders: this.#renders });
+          } catch (error) {
+            console.error(error);
+          }
+        }
 
         // Effect가 계속 갱신을 예약하면 동기 루프를 끊고 마지막으로 반영된 상태를 유지한다.
         if (queuedUpdates.length > queuedCount) {
@@ -431,6 +477,7 @@ export class FunctionComponent {
       const patches = diff(previous, vnode);
       applyingPatches = true;
       applyPatches(container, patches);
+      this.#lastPatches = patches;
       for (const [index, slot] of pendingMemos) {
         this.hooks[index] = slot;
       }

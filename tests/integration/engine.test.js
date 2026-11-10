@@ -9,7 +9,7 @@ import { createDOM } from '../../src/dom/render.js';
 
 test('실제 DOM을 변환해 다섯 종류의 변경을 적용하고 목표 VNode와 일치시킨다', () => {
   const container = document.createElement('main');
-  container.innerHTML = '<section class="before" title="gone"> \n<p>before</p><ol><li>A</li><li>B</li><li>C</li></ol><aside>old</aside><footer>same</footer></section>';
+  container.innerHTML = '<section class="before" title="gone"> <p>before</p><ol><li>A</li><li>B</li><li>C</li></ol><aside>old</aside><footer>same</footer></section>';
   document.body.append(container);
   const root = container.firstChild;
   const [space, paragraph, list, aside, footer] = root.childNodes;
@@ -17,7 +17,7 @@ test('실제 DOM을 변환해 다섯 종류의 변경을 적용하고 목표 VNo
   const originalText = paragraph.firstChild;
   const previous = domToVNode(root);
   const next = h('section', { attrs: { class: 'after', id: 'new' }, events: {} }, [
-    ' \n',
+    ' ',
     h('p', null, ['after']),
     h('ol', null, [h('li', null, ['A'])]),
     h('article', null, ['new']),
