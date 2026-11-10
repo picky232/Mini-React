@@ -125,7 +125,7 @@
 - **엣지 케이스를 최대한 고려** 합니다.
 - 이력서와 포트폴리오에 포함할 수 있을 만큼 완성도 높은 수준으로 구현합니다.
 
-## Phase 1 데모 실행
+## 데모 실행
 
 Node.js 지원 범위는 `package.json`의 `engines`에 있습니다. 아래 명령을 실행하고 터미널에 표시되는 로컬 주소를 브라우저에서 엽니다.
 
@@ -134,7 +134,22 @@ npm ci
 npm run dev
 ```
 
+| 경로 | 데모 |
+| --- | --- |
+| `/` | Phase 1 DOM 실습 |
+| `/todo.html` | Phase 2 오늘의 할 일 |
+
+### Phase 1 DOM 실습
+
 **HTML 코드 보기** 스위치를 켜면 실제 영역의 소스를 확인하고 테스트 영역의 태그·속성·텍스트를 수정할 수 있습니다. 테스트 코드는 루트 노드 하나를 기준으로 편집합니다. 스위치를 끄면 초안이 렌더링된 모습을 볼 수 있고, **Patch**를 누르면 실제 영역에 반영됩니다. **뒤로가기**와 **앞으로가기**는 두 영역을 같은 이력으로 맞춥니다. 뒤로 간 뒤 새 편집을 반영하면 그 위치에서 새 이력이 시작됩니다.
+
+### Phase 2 오늘의 할 일
+
+새 할 일을 입력하고 Enter 또는 **추가**를 누릅니다. 할 일 제목을 누르면 완료 상태가 바뀌고, **삭제**를 누르면 목록에서 사라집니다. **전체**, **완료**, **미완료** 필터를 바꿔도 완료 수는 전체 목록을 기준으로 표시합니다. 할 일은 메모리에 저장되며 새로고침하면 빈 목록에서 시작합니다.
+
+입력 제출이나 버튼 클릭으로 루트 컴포넌트의 `useState`를 갱신합니다. 루트가 다시 실행되면 `useMemo`가 목록과 필터를 기준으로 표시할 항목을 계산하고, 자식 함수는 props로 VNode를 만듭니다. 기존 Diff/Patch 엔진이 변경을 DOM에 반영한 뒤 `useEffect`가 완료 수를 문서 제목에 동기화합니다. [Todo 컴포넌트](src/app/todo.js) · [Phase 2 설계 계약](docs/PHASE2_SPEC.md)
+
+Todo ID는 상태에서 항목을 식별하는 데 사용합니다. Mini React 엔진은 형제 인덱스로 VNode를 비교하므로 목록 중간에서 항목을 삭제하면 같은 위치의 DOM 노드가 다른 항목에 재사용될 수 있습니다. React는 목록의 `key`로 항목을 대응시키며, 이벤트 핸들러에서 여러 상태 업데이트를 배치로 처리합니다. 이 프로젝트의 이벤트 setter는 갱신을 즉시 처리하며, 배칭은 Stage 6 선택 과제입니다. [React 목록의 key](https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key) · [React 상태 업데이트 배칭](https://react.dev/learn/queueing-a-series-of-state-updates#react-batches-state-updates)
 
 - [데이터 구조·인터페이스·의존성](docs/architecture.md)
 - [단계별 구현·검증·학습 계획](PLAN.md)
@@ -143,7 +158,7 @@ npm run dev
 
 | 명령 | 용도 |
 | --- | --- |
-| npm run dev | Phase 1 데모 개발 서버 실행 |
+| npm run dev | Phase 1·2 데모 개발 서버 실행 |
 | npm test | Vitest 전체 실행, watch 없이 종료 |
 | npm run test:unit | 순수 로직과 DOM 단위 테스트 |
 | npm run test:integration | jsdom 환경 통합 테스트 |
