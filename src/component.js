@@ -37,20 +37,56 @@ let current = null;
 export function h(type, props, ...children) {
   const { key, ...rest } = props ?? {};
   const k = key == null ? undefined : String(key);
+  checkChildren(children);
   // 자식이 있을 때만 children을 넘긴다. 빈 배열도 매번 새 객체라서 넘기면 memo의 props 비교가 늘 실패한다
   if (typeof type === 'function') return renderChild(type, children.length ? { ...rest, children } : rest, k);
+  // 잘못된 태그는 createElement가 patch 도중에 던진다. 렌더 단계에서 먼저 멈춰야 DOM이 반쯤 바뀌지 않는다
+  if (typeof type !== 'string' || !TAG_NAME.test(type)) throw new Error(`쓸 수 없는 태그 이름입니다: ${String(type)}`);
 
   const attrs = {};
   const events = {};
   for (const [name, value] of Object.entries(rest)) {
     // onClick → click. 핸들러는 DOM 속성이 아니므로 props에 넣지 않는다 (setAttribute하면 함수가 글자로 바뀜)
     if (/^on[A-Z]/.test(name) && typeof value === 'function') events[name.slice(2).toLowerCase()] = value;
+    // 보안: 함수가 아닌 on* 값은 setAttribute되면 인라인 핸들러로 실행된다(HTML 속성은 대소문자 무시). React도 무시한다
+    else if (/^on/i.test(name)) continue;
+    // 브라우저가 거부하는 이름은 patch 도중 setAttribute가 던져 화면과 기록이 어긋나므로 버린다
+    else if (!ATTR_NAME.test(name)) continue;
     // false·null·undefined = 속성 없음, true = 값 없는 속성(checked=""), 나머지는 문자열 (Phase 1 계약: props는 문자열)
-    else if (value != null && value !== false) attrs[name] = value === true ? '' : String(value);
+    else if (value != null && value !== false) {
+      const v = value === true ? '' : String(value);
+      if (URL_ATTRS.has(name.toLowerCase()) && JS_URL.test(v)) continue; // 보안: 클릭·로드 때 스크립트로 실행된다
+      attrs[name] = v;
+    }
   }
   const vnode = { type, props: attrs, children: normalizeChildren(children), events };
   if (k !== undefined) vnode.key = k;
-  return vnode;
+  return mark(vnode);
+}
+
+// shortcut: ASCII 이름만 허용한다(React는 유니코드 이름도 허용). 한글 속성 이름이 필요해지면 XML Name 규칙으로 넓힌다
+const TAG_NAME = /^[a-zA-Z][a-zA-Z0-9-]*$/;
+const ATTR_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:.-]*$/;
+const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+// 브라우저는 URL 앞의 제어문자·공백을 버리고 중간의 탭·줄바꿈을 지운 뒤 읽는다 → "java\tscript:"도 실행된다. React sanitizeURL과 같은 규칙
+const JS_URL = /^[\u0000-\u001F ]*j[\r\n\t]*a[\r\n\t]*v[\r\n\t]*a[\r\n\t]*s[\r\n\t]*c[\r\n\t]*r[\r\n\t]*i[\r\n\t]*p[\r\n\t]*t[\r\n\t]*:/i;
+
+/*
+ * 보안: 엔진이 만든 VNode 표시. React의 $$typeof(Symbol)와 같은 역할이다.
+ * 표시가 없으면 normalizeChildren은 "객체 = VNode"로 믿으므로, 서버·localStorage의 JSON이 글자 자리에 오면
+ * {type:'img', props:{onerror:...}}가 진짜 태그로 그려진다. JSON은 이 WeakSet에 들어갈 수 없어 흉내 낼 수 없다.
+ * 필드 대신 WeakSet을 쓰는 이유: VNode 모양(Phase 1 계약)을 바꾸지 않는다.
+ */
+const VNODES = new WeakSet();
+const mark = (v) => (VNODES.add(v), v);
+
+// 사용자 코드가 넘긴 자식(h의 children, 컴포넌트가 돌려준 값) 검사. 엔진 내부의 normalizeChildren 호출은 이미 검사된 값이라 거치지 않는다
+function checkChildren(list) {
+  for (const c of [list].flat(Infinity)) {
+    if (c !== null && typeof c === 'object' && !VNODES.has(c)) {
+      throw new Error('h()가 만들지 않은 객체는 자식으로 쓸 수 없습니다. 글자로 보여 주려면 String()이나 JSON.stringify()로 바꾸세요');
+    }
+  }
 }
 
 /**
@@ -129,6 +165,7 @@ function renderInstance(inst) {
   } finally {
     current = prev; // 렌더가 끝나면 부모 상자로 돌아간다. 맨 위면 null이라 렌더 밖 hook 호출은 에러
   }
+  checkChildren(out);
   if (inst.hookCount !== undefined && inst.hookIndex !== inst.hookCount) {
     throw new Error(`hook 개수가 바뀌었습니다 (${inst.hookCount} → ${inst.hookIndex}). 조건문·반복문 안에서 hook을 부르면 순서로 칸을 찾을 수 없습니다`);
   }
@@ -148,7 +185,7 @@ function renderInstance(inst) {
 
 // key는 컴포넌트가 아니라 부모 목록의 일이므로 결과 VNode에 붙인다
 function withKey(out, key) {
-  return key !== undefined && out && typeof out === 'object' && !Array.isArray(out) ? { ...out, key } : out;
+  return key !== undefined && out && typeof out === 'object' && !Array.isArray(out) ? mark({ ...out, key }) : out;
 }
 
 // 상자와 그 아래 상자를 모두 "빠짐"으로 표시하고, commit에서 cleanup을 부르도록 모은다. 이후 setState는 무시된다
@@ -190,7 +227,7 @@ function replaceAt(path, out) {
     const children = i === path.length - 2
       ? normalizeChildren([...node.children.slice(0, at), out, ...node.children.slice(at + 1)])
       : node.children.map((c, j) => (j === at ? next : c));
-    const copy = { ...node, children };
+    const copy = mark({ ...node, children }); // 복사본도 상자 output이 되어 memo로 다시 자식 자리에 온다
     replaced.set(node, copy);
     child = node;
     next = copy;
