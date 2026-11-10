@@ -42,15 +42,17 @@ export function h(type, props, ...children) {
   if (typeof type === 'function') return renderChild(type, children.length ? { ...rest, children } : rest, k);
   // 잘못된 태그는 createElement가 patch 도중에 던진다. 렌더 단계에서 먼저 멈춰야 DOM이 반쯤 바뀌지 않는다
   if (typeof type !== 'string' || !TAG_NAME.test(type)) throw new Error(`쓸 수 없는 태그 이름입니다: ${String(type)}`);
+  // 보안: createElement로 만든 <script>는 DOM에 붙는 순간 실행된다(innerHTML로 넣은 것과 다름)
+  if (type.toLowerCase() === 'script') throw new Error('script 태그는 h()로 만들 수 없습니다');
 
   const attrs = {};
   const events = {};
   for (const [name, value] of Object.entries(rest)) {
     // onClick → click. 핸들러는 DOM 속성이 아니므로 props에 넣지 않는다 (setAttribute하면 함수가 글자로 바뀜)
     if (/^on[A-Z]/.test(name) && typeof value === 'function') events[name.slice(2).toLowerCase()] = value;
-    // 보안: 함수가 아닌 on* 값은 setAttribute되면 인라인 핸들러로 실행된다(HTML 속성은 대소문자 무시). React도 무시한다
+    // 보안: 함수가 아닌 on* 값은 setAttribute되면 인라인 핸들러로 실행된다(HTML 속성은 대소문자 무시). React도 DOM 속성으로 넣지 않는다
     else if (/^on/i.test(name)) continue;
-    // 브라우저가 거부하는 이름은 patch 도중 setAttribute가 던져 화면과 기록이 어긋나므로 버린다
+    // 허용 목록 밖의 이름은 버린다. 브라우저가 거부하는 이름이 patch 도중 setAttribute에서 던지면 화면과 기록이 어긋나기 때문
     else if (!ATTR_NAME.test(name)) continue;
     // false·null·undefined = 속성 없음, true = 값 없는 속성(checked=""), 나머지는 문자열 (Phase 1 계약: props는 문자열)
     else if (value != null && value !== false) {
@@ -64,10 +66,10 @@ export function h(type, props, ...children) {
   return mark(vnode);
 }
 
-// shortcut: ASCII 이름만 허용한다(React는 유니코드 이름도 허용). 한글 속성 이름이 필요해지면 XML Name 규칙으로 넓힌다
+// shortcut: 브라우저보다 좁게 ASCII 이름만 허용한다(브라우저는 '가'·'1a' 같은 이름도 받는다). 그런 이름이 필요해지면 XML Name 규칙으로 넓힌다
 const TAG_NAME = /^[a-zA-Z][a-zA-Z0-9-]*$/;
 const ATTR_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:.-]*$/;
-const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href', 'data']); // data = <object data>
 // 브라우저는 URL 앞의 제어문자·공백을 버리고 중간의 탭·줄바꿈을 지운 뒤 읽는다 → "java\tscript:"도 실행된다. React sanitizeURL과 같은 규칙
 const JS_URL = /^[\u0000-\u001F ]*j[\r\n\t]*a[\r\n\t]*v[\r\n\t]*a[\r\n\t]*s[\r\n\t]*c[\r\n\t]*r[\r\n\t]*i[\r\n\t]*p[\r\n\t]*t[\r\n\t]*:/i;
 
@@ -129,7 +131,11 @@ function newInstance(fn, key, parent) {
 // 자식 컴포넌트 실행: 부모 상자 안에서 이 자식의 상자를 찾아 그 상자로 함수를 실행한다
 function renderChild(fn, props, key) {
   const parent = current;
-  if (!parent) return withKey(fn(props), key); // 렌더 밖에서 부른 h(Comp): 상자 없이 한 번 실행 (hook을 쓰면 에러)
+  if (!parent) { // 렌더 밖에서 부른 h(Comp): 상자 없이 한 번 실행 (hook을 쓰면 에러)
+    const out = fn(props);
+    checkChildren(out); // 검사 없이 withKey가 복사·표시하면 JSON 객체가 "엔진이 만든 VNode"로 둔갑한다
+    return withKey(out, key);
+  }
 
   // 1. 지난번 상자 찾기: key가 있으면 key로, 없으면 "이 부모 안에서 같은 컴포넌트를 몇 번째로 불렀나"로 짝짓는다
   const n = parent.calls.get(fn) ?? 0;

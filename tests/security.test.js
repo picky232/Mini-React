@@ -1,6 +1,6 @@
 // 보안: React에서 실제로 문제가 됐던 입력을 h()가 막는지 확인한다
 import { describe, it, expect } from 'vitest';
-import { h, FunctionComponent, useState } from '../src/component.js';
+import { h, memo, FunctionComponent, useState } from '../src/component.js';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -28,9 +28,14 @@ describe('JSON 객체를 VNode로 착각하지 않는다 (React $$typeof 사례)
     expect(() => mount(() => h('div', null, h(Bad)))).toThrow(/자식/);
   });
 
+  it('렌더 밖에서 key를 붙여 부른 컴포넌트도 JSON을 돌려주면 에러 (key 복사로 표시가 붙는 우회)', () => {
+    const Bad = () => fake();
+    expect(() => h(Bad, { key: 'x' })).toThrow(/자식/);
+  });
+
   it('h()가 만든 VNode·key 붙은 컴포넌트 출력·memo 출력은 그대로 쓴다', async () => {
     let set;
-    const Item = ({ t }) => h('li', null, t);
+    const Item = memo(({ t }) => h('li', null, t));
     const { container } = mount(() => {
       const [ts, s] = useState(['a', 'b']);
       set = s;
@@ -39,6 +44,9 @@ describe('JSON 객체를 VNode로 착각하지 않는다 (React $$typeof 사례)
     set(['b', 'a']);
     await flush();
     expect(container.innerHTML).toBe('<ul><li>b</li><li>a</li></ul>');
+    set(['b', 'a', 'c']); // b·a는 memo로 건너뛰어 지난 출력 객체를 다시 쓴다
+    await flush();
+    expect(container.innerHTML).toBe('<ul><li>b</li><li>a</li><li>c</li></ul>');
   });
 });
 
@@ -69,8 +77,8 @@ describe('javascript: URL을 막는다', () => {
     expect(h('a', { href: url }).props).toEqual({});
   });
 
-  it('src·action·formaction·xlink:href도 막는다', () => {
-    const v = h('form', { action: 'javascript:1', formaction: 'javascript:1', src: 'javascript:1', 'xlink:href': 'javascript:1' });
+  it('src·action·formaction·xlink:href·data도 대소문자 상관없이 막는다', () => {
+    const v = h('form', { action: 'javascript:1', formAction: 'javascript:1', SRC: 'javascript:1', 'xlink:href': 'javascript:1', data: 'javascript:1' });
     expect(v.props).toEqual({});
   });
 
@@ -101,7 +109,25 @@ describe('잘못된 이름으로 patch 도중에 멈추지 않는다', () => {
     expect(seen).toEqual(['bad name']);
   });
 
-  it('잘못된 태그 이름은 patch 전에 에러를 내고 DOM은 그대로', () => {
+  it('잘못된 태그 이름은 patch 전에 에러를 내고 DOM은 그대로', async () => {
     expect(() => h('img src=x onerror=alert(1)', null)).toThrow(/태그/);
+    let set;
+    const { container } = mount(() => { const [t, s] = useState('p'); set = s; return h('div', null, h('span', null, t), h(t, null, 'x')); });
+    const errors = [];
+    const onError = (e) => errors.push(e.message); // flush는 microtask라 에러가 바깥으로 나간다
+    process.on('uncaughtException', onError);
+    try {
+      set('img src=x');
+      await flush();
+    } finally {
+      process.off('uncaughtException', onError);
+    }
+    expect(errors.some((m) => /태그/.test(m))).toBe(true);
+    expect(container.innerHTML).toBe('<div><span>p</span><p>x</p></div>');
+  });
+
+  it('script 태그는 만들 수 없다 (createElement로 만든 script는 붙는 순간 실행됨)', () => {
+    expect(() => h('script', null, 'alert(1)')).toThrow(/script/);
+    expect(() => h('SCRIPT', null)).toThrow(/script/);
   });
 });

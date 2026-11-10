@@ -156,18 +156,19 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 | React에서 실제로 있었던 일 | 미니 리액트의 처리 |
 | --- | --- |
 | 서버에 저장된 JSON 객체가 글자 자리에 오면 엘리먼트로 그려졌다. React 0.14부터 JSON으로 만들 수 없는 `$$typeof: Symbol`을 붙여 구분한다 [^typeof] | `h()`가 만든 VNode만 모듈 안 `WeakSet`에 표시한다. 표시가 없는 객체가 자식이나 컴포넌트 출력으로 오면 에러를 낸다. VNode 모양(Phase 1 계약)은 그대로다 |
-| `href="javascript:..."`는 클릭하면 스크립트가 실행된다. React 16.9부터 경고했고, 19에서는 막는다 [^jsurl] | `href`·`src`·`action`·`formaction`·`xlink:href`의 `javascript:` 값을 버린다. 브라우저처럼 앞의 제어문자와 중간의 탭·줄바꿈을 무시하고 검사한다(`java\tscript:`도 막음) |
-| `onClick`에 함수가 아닌 값이 오면 React는 무시한다 | 함수가 아닌 `on*` 값을 버린다. HTML 속성은 대소문자를 구분하지 않아 `onClick="..."`도 인라인 핸들러가 되기 때문이다 |
-| 서버 렌더링에서 속성 이름을 검사하지 않아 XSS가 생겼다(CVE-2018-6341) [^cve] | 브라우저가 거부하는 속성 이름은 버리고, 잘못된 태그 이름은 렌더 단계에서 에러를 낸다. 검사하지 않으면 patch 도중 `setAttribute`가 던져서, 화면은 반쯤 바뀌었는데 엔진은 옛 VNode를 기억하게 된다 |
+| `href="javascript:..."`는 클릭하면 스크립트가 실행된다. React 16.9부터 경고했고, 19에서는 막는다 [^jsurl] | `href`·`src`·`action`·`formaction`·`xlink:href`·`data`의 `javascript:` 값을 버린다. 브라우저처럼 앞의 제어문자와 중간의 탭·줄바꿈을 무시하고 검사한다(`java\tscript:`도 막음) |
+| `onClick`에 함수가 아닌 값이 오면 React는 DOM 속성으로 넣지 않는다(경고하고, 이벤트가 오면 에러) | 함수가 아닌 `on*` 값을 버린다. HTML 속성은 대소문자를 구분하지 않아 `onClick="..."`도 인라인 핸들러가 되기 때문이다 |
+| 서버 렌더링에서 속성 이름을 검사하지 않아 XSS가 생겼다(CVE-2018-6341) [^cve] | 허용 목록(ASCII) 밖의 속성 이름은 버리고, 잘못된 태그 이름과 `script` 태그는 렌더 단계에서 에러를 낸다. 검사하지 않으면 patch 도중 `setAttribute`가 던져서, 화면은 반쯤 바뀌었는데 엔진은 옛 VNode를 기억하게 된다 |
 
 막지 않는 것:
 - Phase 1 검증 페이지는 사용자가 쓴 HTML을 그대로 그린다. `<script>`와 `onerror`도 실행되지만, 자기 입력을 자기 화면에 그리는 것이라 self-XSS뿐이다.
 - 이벤트 위임은 DOM 위치로 VNode를 찾는다. 확장 프로그램 같은 외부 코드가 DOM에 노드를 끼우면 다른 노드의 핸들러가 불릴 수 있다.
 - `style`은 문자열로 받으므로 사용자 값을 넣으면 CSS 주입이 가능하다. 페이지에 CSP는 없다.
+- `iframe srcdoc`, `data:` URL, `iframe`·`object`·`embed`·`base` 태그는 막지 않는다. 사용자 값으로 이 속성을 채우거나 태그를 고르면 안 된다(React도 막지 않음).
 
 [^typeof]: [Why Do React Elements Have a $$typeof Property?](https://overreacted.io/why-do-react-elements-have-typeof-property/), [facebook/react#4832](https://github.com/facebook/react/pull/4832)
 [^jsurl]: [eslint-plugin-react jsx-no-script-url](https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/jsx-no-script-url.md), [Bun lint: jsx-no-script-url](https://bun.com/docs/lint/rules/react/jsx-no-script-url)
-[^cve]: [CVE-2018-6341 (Fluid Attacks)](https://db.fluidattacks.com/adv/npm/react-dom/CVE-2018-6341)
+[^cve]: [React v16.4.2: Server-side vulnerability fix](https://legacy.reactjs.org/blog/2018/08/01/react-v-16-4-2.html)
 
 ## 실제 React와의 차이
 
@@ -188,14 +189,14 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 ## 테스트
 
-`npm test` 결과: 14개 파일, 280개 테스트가 통과합니다.
+`npm test` 결과: 14개 파일, 282개 테스트가 통과합니다.
 
 | 파일 | 확인하는 것 |
 | --- | --- |
 | `vdom` · `diff` · `patch` · `history` · `integration` · `edge` · `fixtures` · `editor` · `log` | Phase 1 엔진과 검증 페이지 (198개) |
 | `component.test.js` | h, useState, batching, 이벤트 위임, useEffect, useMemo, memo, hook 규칙, unmount (29개) |
 | `instance.test.js` | 컴포넌트별 상태, 자식만 다시 실행, null·배열 출력, 상자 지우기와 cleanup, memo와 자기 상태, key 순서 변경, effect 순서 (13개) |
-| `security.test.js` | JSON 객체 자식 거부, 문자열 `on*`·`javascript:` URL 제거, 잘못된 속성·태그 이름 (16개) |
+| `security.test.js` | JSON 객체 자식 거부, 문자열 `on*`·`javascript:` URL 제거, 잘못된 속성·태그 이름, script 태그, 렌더 밖 key 우회 (18개) |
 | `keyed.test.js` | key 재조정의 patch 개수와 노드 재사용, 무작위 300회 fuzz, LIS (14개) |
 | `phase2.test.js` | Phase 2 확인 페이지(할 일 앱)의 추가·체크·삭제·필터·batching·뒤집기·저장 (10개) |
 
