@@ -149,7 +149,21 @@ npm run dev
 
 입력 제출이나 버튼 클릭으로 루트 컴포넌트의 `useState`를 갱신합니다. 루트가 다시 실행되면 `useMemo`가 목록과 필터를 기준으로 표시할 항목을 계산하고, 자식 함수는 props로 VNode를 만듭니다. 기존 Diff/Patch 엔진이 변경을 DOM에 반영한 뒤 `useEffect`가 완료 수를 문서 제목에 동기화합니다. [Todo 컴포넌트](src/app/todo.js) · [Phase 2 설계 계약](docs/PHASE2_SPEC.md)
 
-Todo ID는 상태에서 항목을 식별하는 데 사용합니다. Mini React 엔진은 형제 인덱스로 VNode를 비교하므로 목록 중간에서 항목을 삭제하면 같은 위치의 DOM 노드가 다른 항목에 재사용될 수 있습니다. React는 목록의 `key`로 항목을 대응시키며, 이벤트 핸들러에서 여러 상태 업데이트를 배치로 처리합니다. 이 프로젝트의 이벤트 setter는 갱신을 즉시 처리하며, 배칭은 Stage 6 선택 과제입니다. [React 목록의 key](https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key) · [React 상태 업데이트 배칭](https://react.dev/learn/queueing-a-series-of-state-updates#react-batches-state-updates)
+Todo ID는 상태에서 항목을 식별하는 데 사용합니다. Mini React 엔진은 형제 인덱스로 VNode를 비교하므로 목록 중간에서 항목을 삭제하면 같은 위치의 DOM 노드가 다른 항목에 재사용될 수 있습니다. React는 목록의 `key`로 항목을 대응시킵니다. [React 목록의 key](https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key)
+
+### Stage 6 상태 갱신 배칭
+
+같은 루트의 여러 setter를 한 번의 렌더링으로 반영하려면 `component.batch()`로 묶습니다. 아래에서 `count`가 `0`이면 updater 세 개가 순서대로 적용되고 DOM에는 `3`이 한 번에 반영됩니다.
+
+```js
+component.batch(() => {
+  setCount((count) => count + 1);
+  setCount((count) => count + 1);
+  setCount((count) => count + 1);
+});
+```
+
+Mini React의 배치 범위는 명시적으로 전달한 콜백이 반환될 때까지입니다. `await` 이후의 호출은 새 구간에서 동작합니다. React는 이벤트 핸들러의 상태 갱신을 자동으로 배치합니다. [Mini React 배칭 계약](docs/PHASE2_SPEC.md#stage-6--상태-갱신-배칭) · [React 상태 업데이트 배칭](https://react.dev/learn/queueing-a-series-of-state-updates#react-batches-state-updates)
 
 - [데이터 구조·인터페이스·의존성](docs/architecture.md)
 - [단계별 구현·검증·학습 계획](PLAN.md)

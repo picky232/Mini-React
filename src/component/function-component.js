@@ -178,6 +178,26 @@ function runEffectCallbacks(callbacks) {
 }
 
 /**
+ * 한 슬롯을 여러 번 변경해도 역순으로 복원하면 배치 시작 전 값으로 돌아간다.
+ * @param {readonly StateChange[]} changes
+ */
+function applyStateChanges(changes) {
+  /** @type {(() => void)[]} */
+  const rollbacks = [];
+  const rollback = () => {
+    for (const restore of rollbacks.reverse()) restore();
+  };
+
+  try {
+    for (const change of changes) rollbacks.push(change());
+  } catch (error) {
+    rollback();
+    throw error;
+  }
+  return rollback;
+}
+
+/**
  * 루트 렌더 함수를 감싸고 렌더링 사이에 유지할 데이터를 보관한다.
  * @template Props
  */
@@ -198,6 +218,9 @@ export class FunctionComponent {
 
   /** @type {StateChange[] | null} */
   #queuedEffectUpdates = null;
+
+  /** @type {StateChange[] | null} */
+  #batchedUpdates = null;
 
   /**
    * 마지막으로 DOM에 반영한 VNode다. 최초 마운트 전에는 null이며 이후 Diff의 비교 기준이 된다.
@@ -236,9 +259,48 @@ export class FunctionComponent {
     this.#update();
   }
 
+  /**
+   * 동기 콜백이 호출한 setter를 모아 하나의 갱신으로 반영한다.
+   * @template T
+   * @param {() => T} callback
+   * @returns {T}
+   */
+  batch(callback) {
+    if (this.#container === null) {
+      throw new Error('Component must be mounted before batching.');
+    }
+    if (this.#isCommitting && this.#queuedEffectUpdates === null) {
+      throw new Error('Component is already processing a lifecycle operation.');
+    }
+    if (this.#batchedUpdates !== null) return callback();
+
+    /** @type {StateChange[]} */
+    const changes = [];
+    this.#batchedUpdates = changes;
+    let result;
+    try {
+      result = callback();
+    } finally {
+      // Promise를 반환하더라도 여기서 수집을 끝낸다. 이후 setter는 새 구간에서 실행된다.
+      this.#batchedUpdates = null;
+    }
+
+    if (changes.length > 0) {
+      // Effect 중이라면 합친 갱신 하나를 기존 Effect 큐가 처리한다.
+      try {
+        this.#update(() => applyStateChanges(changes));
+      } catch (error) {
+        // 갱신 오류로 반환할 수 없게 된 콜백 Promise의 거부를 처리한다.
+        void Promise.resolve(result).catch(() => {});
+        throw error;
+      }
+    }
+    return result;
+  }
+
   /** DOM 루트를 제거하고 등록된 cleanup을 호출한다. 이후 새로 마운트할 수 있다. */
   unmount() {
-    if (this.#isCommitting) {
+    if (this.#isCommitting || this.#batchedUpdates !== null) {
       throw new Error('Component is already processing a lifecycle operation.');
     }
     const container = this.#container;
@@ -266,6 +328,13 @@ export class FunctionComponent {
   #update(changeState) {
     if (this.#container === null) {
       throw new Error('Component must be mounted before updating.');
+    }
+
+    if (this.#batchedUpdates !== null) {
+      if (changeState === undefined) throw new Error('Cannot update while collecting a batch.');
+      // 슬롯 값은 갱신 시점까지 유지해 updater가 바로 앞 요청의 결과를 읽도록 한다.
+      this.#batchedUpdates.push(changeState);
+      return;
     }
 
     if (changeState !== undefined && this.#queuedEffectUpdates !== null) {

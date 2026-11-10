@@ -4,7 +4,7 @@
 
 - Vanilla HTML/CSS/JavaScript ESM으로 Mini React를 만든다. React·Vue 등 UI 프레임워크와 JSX 도구는 사용하지 않는다.
 - 과제 요구사항은 README.md, 데이터·인터페이스 기준은 src/core/contracts.js 및 docs/architecture.md, 단계별 범위는 PLAN.md를 따른다.
-- Phase 1 Stage 5와 Phase 2 Stage 5의 구현·검증을 마쳤다. 다음 단계는 사용자가 요청할 때 진행한다.
+- Phase 1 Stage 5와 Phase 2 Stage 6의 구현·검증을 마쳤다. 다음 작업은 사용자가 요청할 때 진행한다.
 - 단계가 진행되면 PLAN.md의 체크 항목과 이 문서의 현재 단계도 실제 검증 결과에 맞춰 갱신한다.
 - Phase 2는 Phase 1 엔진을 재사용한다. 루트만 State/Hooks를 관리하고 자식 컴포넌트는 순수 함수로 둔다. Phase 2 인터페이스는 [설계 계약](docs/PHASE2_SPEC.md)을 따른다.
 - `Stage N 실행해`는 [Phase 2 실행 프롬프트](docs/phase2-prompts.md)의 해당 단계만 실행하라는 뜻이다. 사용자가 Phase 1을 명시하면 그 범위를 따른다. `Stage N 분석해`는 같은 문서의 코드 분석 프롬프트를 적용한다.
