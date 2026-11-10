@@ -124,3 +124,31 @@
 - 테스트 영역에 다양한 태그와 요소를 추가해 여러 동작과 변화를 자유롭게 확인해 보세요.
 - **엣지 케이스를 최대한 고려** 합니다.
 - 이력서와 포트폴리오에 포함할 수 있을 만큼 완성도 높은 수준으로 구현합니다.
+
+## Phase 1 데모 실행
+
+Node.js 지원 범위는 `package.json`의 `engines`에 있습니다. 아래 명령을 실행하고 터미널에 표시되는 로컬 주소를 브라우저에서 엽니다.
+
+```sh
+npm ci
+npm run dev
+```
+
+**HTML 코드 보기** 스위치를 켜면 실제 영역의 소스를 확인하고 테스트 영역의 태그·속성·텍스트를 수정할 수 있습니다. 테스트 코드는 루트 노드 하나를 기준으로 편집합니다. 스위치를 끄면 초안이 렌더링된 모습을 볼 수 있고, **Patch**를 누르면 실제 영역에 반영됩니다. **뒤로가기**와 **앞으로가기**는 두 영역을 같은 이력으로 맞춥니다. 뒤로 간 뒤 새 편집을 반영하면 그 위치에서 새 이력이 시작됩니다.
+
+- [데이터 구조·인터페이스·의존성](docs/architecture.md)
+- [단계별 구현·검증·학습 계획](PLAN.md)
+- [AI 작업 공통 지침](AGENTS.md)
+- [JavaScript JSDoc 계약](src/core/contracts.js)
+
+| 명령 | 용도 |
+| --- | --- |
+| npm run dev | Phase 1 데모 개발 서버 실행 |
+| npm test | Vitest 전체 실행, watch 없이 종료 |
+| npm run test:unit | 순수 로직과 DOM 단위 테스트 |
+| npm run test:integration | jsdom 환경 통합 테스트 |
+| npm run test:watch | 개발 중 변경 감지 |
+| npm run typecheck | JS/JSDoc 계약 정적 검사, 출력 파일 없음 |
+| npm run check | 정적 검사 후 전체 테스트 |
+
+Vitest는 기능별 단위 테스트와 엔진·데모 통합 테스트를 실행합니다. `tests/contracts`는 JSDoc 타입 검사를 위한 fixture입니다. DOM이 필요한 테스트에는 파일 첫 줄에 `// @vitest-environment jsdom`을 붙입니다.
