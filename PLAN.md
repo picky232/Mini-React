@@ -1,6 +1,6 @@
 # 구현 계획
 
-현재 **Stage 5 — Phase 1 데모 구현·검증 완료**. 다음 단계는 사용자가 요청할 때 진행한다.
+현재 **Phase 2 Stage 1 — 최초 렌더링 구현·검증 완료**. 다음 단계는 사용자가 요청할 때 진행한다.
 
 각 단계의 시간은 **이론 30% → AI 코딩 40% → 생성 코드 분석 30%**로 배분한다. 체크 표시는 해당 완료 조건과 검증을 만족했을 때만 갱신한다.
 
@@ -78,15 +78,17 @@ Stage 0에서는 설계·초기화와 테스트 환경 확인을 수행했다.
 이론: app의 조합 책임과 엔진 책임, 편집 DOM과 저장 트리의 차이.
 코드 분석: 버튼 한 번이 호출하는 함수·저장 시점·오류 시 상태를 추적한다. jsdom 테스트로 레이아웃·커서 동작까지 검증했다고 주장하지 않는다.
 
-## Phase 2 — 재사용 원칙과 후속 순서
+## Phase 2 — Component · State · Hooks
 
-세부 계획은 Phase 1 완료 후 확정하며 지금 구현하지 않는다.
+단계별 작업 범위와 완료 기준은 [Phase 2 실행 프롬프트](docs/phase2-prompts.md)를 따른다. `Stage 1 실행해`처럼 단계를 지정하면 Phase 2의 해당 단계만 진행한다.
 
-1. `FunctionComponent` 클래스: hooks 배열, mount/update, 이전 VNode 보관. 자식은 props만 받는 순수 함수.
-2. 루트 `useState`: 상태 슬롯, 함수형 갱신, 상태 변경 → 기존 Diff/Patch 경로의 부분 갱신.
-3. `useEffect`: 렌더 후 실행, 의존성 비교, 재실행 전·해제 시 cleanup.
-4. `useMemo`: 의존성 비교와 계산값 재사용. 각 Hook 단위 테스트 및 Component → Hooks → 엔진 통합 테스트.
-5. 입력·클릭으로 갱신되는 데모. 배칭·key 최적화는 별도 선택 과제로 둔다.
+- [ ] Stage 0 — Phase 1 재사용 경로 확인 및 Phase 2 설계 계약 작성
+- [x] Stage 1 — `FunctionComponent`, `hooks` 배열, `mount()`, props로 자식 렌더링
+- [ ] Stage 2 — `update()`, 루트 `useState()`, 기존 Diff/Patch로 부분 갱신
+- [ ] Stage 3 — `useEffect()`, DOM 반영 후 실행과 cleanup
+- [ ] Stage 4 — `useMemo()`, 의존성 비교와 계산 결과 재사용
+- [ ] Stage 5 — Todo 데모, 단위·통합·브라우저 검증, README 정리
+- [ ] Stage 6 (선택) — 별도 요청 시 배칭 구현 및 렌더링 횟수 검증
 
 ## AI 작업 단위와 완료 조건
 
