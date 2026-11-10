@@ -13,6 +13,8 @@ import { replaceDOMTree } from '../dom/render.js';
 /** @typedef {() => (() => void)} StateChange */
 /** @typedef {{ hooks: HookSlot[], nextIndex: number, update: (changeState: StateChange) => void, pendingEffects: (() => void)[] }} RenderContext */
 
+const MAX_EFFECT_UPDATE_PASSES = 50;
+
 // 루트 함수를 실행하는 동안만 슬롯을 찾을 문맥을 제공한다. 상태값은 각 인스턴스에 있다.
 /** @type {RenderContext | null} */
 let activeRender = null;
@@ -157,6 +159,9 @@ export class FunctionComponent {
 
   #isCommitting = false;
 
+  /** @type {StateChange[] | null} */
+  #queuedEffectUpdates = null;
+
   /**
    * 마지막으로 DOM에 반영한 VNode다. 최초 마운트 전에는 null이며 이후 Diff의 비교 기준이 된다.
    * @type {VNode | null}
@@ -226,6 +231,12 @@ export class FunctionComponent {
       throw new Error('Component must be mounted before updating.');
     }
 
+    if (changeState !== undefined && this.#queuedEffectUpdates !== null) {
+      // Effect가 예약한 함수형 updater는 큐에서 꺼낼 때 최신 상태로 계산한다.
+      this.#queuedEffectUpdates.push(changeState);
+      return;
+    }
+
     this.#renderAndCommit(this.#container, changeState);
   }
 
@@ -267,13 +278,34 @@ export class FunctionComponent {
       throw new Error('Component is already processing a lifecycle operation.');
     }
 
+    /** @type {StateChange[]} */
+    const queuedUpdates = [];
+    let nextChange = changeState;
+    let nextUpdateIndex = 0;
+    let schedulingPasses = 0;
     this.#isCommitting = true;
     try {
-      const rollbackState = changeState?.();
-      const pendingEffects = this.#commitDOM(container, rollbackState);
-      // DOM과 VNode가 확정된 뒤 실행한다. Effect 오류가 이미 반영된 상태를 되돌리지 않는다.
-      runEffectCallbacks(pendingEffects);
+      do {
+        const rollbackState = nextChange?.();
+        const pendingEffects = this.#commitDOM(container, rollbackState);
+        const queuedCount = queuedUpdates.length;
+
+        // DOM 반영 뒤에만 예약을 받는다. 모든 cleanup과 의존성 저장이 끝나면 큐를 이어서 처리한다.
+        this.#queuedEffectUpdates = queuedUpdates;
+        runEffectCallbacks(pendingEffects);
+        this.#queuedEffectUpdates = null;
+
+        // Effect가 계속 갱신을 예약하면 동기 루프를 끊고 마지막으로 반영된 상태를 유지한다.
+        if (queuedUpdates.length > queuedCount) {
+          schedulingPasses += 1;
+          if (schedulingPasses > MAX_EFFECT_UPDATE_PASSES) {
+            throw new Error('Too many consecutive effect updates.');
+          }
+        }
+        nextChange = queuedUpdates[nextUpdateIndex++];
+      } while (nextChange !== undefined);
     } finally {
+      this.#queuedEffectUpdates = null;
       this.#isCommitting = false;
     }
   }

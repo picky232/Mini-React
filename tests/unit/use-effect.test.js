@@ -75,6 +75,52 @@ test('Effect 오류를 전달해도 이미 반영된 DOM과 상태는 유지한�
   expect(container.textContent).toBe('2');
 });
 
+test('Effect 콜백이 실패하면 대기 중인 갱신을 폐기하고 이후 갱신을 허용한다', () => {
+  const failure = new Error('effect failed');
+  let setCount;
+  const component = new FunctionComponent(() => {
+    const [count, setter] = useState(0);
+    setCount = setter;
+    useEffect(() => {
+      if (count === 1) {
+        setCount((value) => value + 10);
+        throw failure;
+      }
+    }, [count]);
+    return createTextVNode(count);
+  }, {});
+  const container = document.createElement('main');
+  component.mount(container);
+
+  expect(() => setCount(1)).toThrow(failure);
+  expect(container.textContent).toBe('1');
+  setCount((value) => value + 1);
+  expect(container.textContent).toBe('2');
+});
+
+test('Effect가 계속 갱신을 예약하면 오류를 내고 이후 갱신을 허용한다', () => {
+  const props = { repeat: true };
+  let setCount;
+  const component = new FunctionComponent(({ repeat }) => {
+    const [count, setter] = useState(0);
+    setCount = setter;
+    useEffect(() => {
+      if (repeat) setCount((value) => value + 1);
+    });
+    return createTextVNode(count);
+  }, props);
+  const container = document.createElement('main');
+
+  expect(() => component.mount(container)).toThrow('Too many consecutive effect updates.');
+  const lastCount = Number(container.textContent);
+  expect(lastCount).toBeGreaterThan(0);
+  expect(component.previousVNode.value).toBe(String(lastCount));
+
+  props.repeat = false;
+  setCount((value) => value + 1);
+  expect(container.textContent).toBe(String(lastCount + 1));
+});
+
 test('해제 중 cleanup이 실패해도 나머지 cleanup을 실행하고 슬롯을 비운다', () => {
   const failure = new Error('cleanup failed');
   const calls = [];

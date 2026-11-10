@@ -85,7 +85,7 @@ Stage 0에서는 설계·초기화와 테스트 환경 확인을 수행했다.
 - [ ] Stage 0 — Phase 1 재사용 경로 확인 및 Phase 2 설계 계약 작성
 - [x] Stage 1 — `FunctionComponent`, `hooks` 배열, `mount()`, props로 자식 렌더링
 - [x] Stage 2 — `update()`, 루트 `useState()`, 기존 Diff/Patch로 부분 갱신, Patch 실패 시 DOM·상태 복구
-- [x] Stage 3 — `useEffect()`, DOM 반영 후 실행, 의존성 변경·해제 시 cleanup
+- [x] Stage 3 — `useEffect()`, DOM 반영 후 실행, 의존성 변경·해제 시 cleanup, Effect에서 예약한 상태 갱신 순서 보장
 - [ ] Stage 4 — `useMemo()`, 의존성 비교와 계산 결과 재사용
 - [ ] Stage 5 — Todo 데모, 단위·통합·브라우저 검증, README 정리
 - [ ] Stage 6 (선택) — 별도 요청 시 배칭 구현 및 렌더링 횟수 검증
