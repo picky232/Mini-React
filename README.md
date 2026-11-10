@@ -1,183 +1,232 @@
-# 미니 리액트 구현
+# Mini React
 
-## 과제 개요
+프레임워크 없이 Vanilla JavaScript(ESM + JSDoc 타입 검사)로 만든 미니 리액트입니다. Virtual DOM, Diff, Patch 엔진(Phase 1) 위에 함수형 컴포넌트와 Hooks(Phase 2)를 올렸습니다. 이 저장소는 두 팀원의 구현(`sohee-phase2`, `jiho-phase2`)을 하나로 합친 결과입니다.
 
-- 두 단계에 걸쳐 **"동작하는 미니 리액트"** 를 직접 구현합니다.
-  - **Phase 1**: Virtual DOM + Diff 알고리즘 + Patch
-  - **Phase 2**: 함수형 Component + State + Hooks (`useState` / `useEffect` / `useMemo`)
-- 최종 결과물은 사용자의 입력/클릭 등에 따라 **부분 업데이트되는 동작하는 웹 페이지**입니다.
+- **Phase 1**: 실제 DOM → VDOM 변환, 두 VDOM 비교(diff), 바뀐 곳만 반영(patch), 뒤로·앞으로 가기
+- **Phase 2**: `FunctionComponent`, `useState` · `useEffect` · `useMemo`, `batch()`, 루트 전용 Hook 규칙
+- **차별점**: key 기반 리스트 재조정(LIS), 실패하면 마지막 화면으로 복구, 엔진 전체에 걸친 위험 입력 차단, Patch 로그와 innerHTML 비용 비교, Hooks 인스펙터
 
-## Phase 1. Virtual DOM + Diff + Patch
+## 실행
 
-- React 의 핵심 개념인 Virtual DOM 과 Diff 알고리즘을 구현합니다.
-  - 브라우저의 DOM 정보를 읽어서 Virtual DOM 으로 변환하는 함수를 작성합니다.
-  - 두 Virtual DOM 을 비교하여 변경된 부분을 찾아내는 Diff 알고리즘을 작성합니다.
-- 이 알고리즘을 검증할 수 있는 웹 페이지를 구현합니다.
-  - 페이지 내에 다음과 같이 2개의 영역과 **Patch, 뒤로가기, 앞으로가기** 버튼들이 있어야 합니다.
-    - 실제 영역
-    - 테스트 영역
-  - 웹 페이지를 로드하면
-    - "실제 영역" 의 샘플 HTML 코드를 Virtual DOM 트리로 변환합니다.
-  - 방금 만든 Virtual DOM 을 이용하여 테스트 영역을 렌더링합니다.
-  - 사용자가 "테스트 영역" 에 있는 샘플 HTML 코드를 자유롭게 수정합니다.
-  - Patch 버튼을 누르면
-    - 현재 테스트 영역 상태를 다시 Virtual DOM 으로 만듭니다.
-    - Diff 알고리즘을 이용해서 이전 Virtual DOM 과 비교하여 변경된 부분을 찾습니다.
-    - 변경된 부분만 "실제 영역" 에 렌더링합니다.
-    - 새로 변경된 Virtual DOM 은 State History 에 저장합니다.
-  - 뒤로가기, 앞으로가기 버튼을 눌러 state history 에 저장된 특정 Virtual DOM 으로 이동 가능하며 "실제 영역", "테스트 영역" 도 함께 변경되어야 합니다.
+Node.js 지원 범위는 `package.json`의 `engines`에 있습니다.
 
-## Phase 2. Component · State · Hooks
-
-- 이번 단계 과제는 기존 React 의 핵심 기능인 Component · State · Hooks 를 직접 구현하고 이를 활용하여 동작하는 웹 페이지를 만들어 보는 것입니다.
-
-### Component (컴포넌트)
-
-- Component 는 UI 를 나누는 작은 단위입니다.
-- 각각의 Component 는 자신만의 로직과 렌더링을 담당합니다.
-- 반드시 **함수형 컴포넌트** 로 구현합니다.
-- 구현 방식
-  - 함수형 컴포넌트를 감싸는 `FunctionComponent` 클래스를 직접 만듭니다.
-  - 이 클래스에는 아래 기능이 필요합니다.
-    - `hooks` 배열 (상태 저장용)
-    - `mount()`: 처음 렌더링
-    - `update()`: 상태 변경 후 다시 렌더링
-- **제약조건 (중요)**
-  - Hook 은 최상위 컴포넌트에서만 사용 가능합니다.
-  - State (상태) 는 "최상위 컴포넌트 (루트 컴포넌트)" 에서만 관리합니다.
-  - 자식 컴포넌트는 state (상태) 를 가지지 않고, 부모로부터 전달받은 props 만 사용합니다. (Lifting State Up 패턴)
-    - 즉, 자식 컴포넌트는 상태 없이 (Stateless) props 만 받아서 사용하는 순수 함수로 구현합니다.
-
-### State (상태)
-
-- State 는 값이 변경될 수 있는 동적 데이터입니다.
-- State 가 바뀌면 → 화면이 자동으로 다시 그려져야 합니다.
-
-### Hooks
-
-- 함수형 컴포넌트에서도 상태와 생명주기를 사용할 수 있게 해주는 기능입니다.
-- 최소 구현 대상
-  - `useState`
-  - `useEffect`
-  - `useMemo`
-- 핵심 질문
-
-> "함수는 매번 새로 실행되는데, 상태는 어떻게 유지할까?" → 이 문제를 해결하는 것이 Hooks 의 핵심입니다.
-
-## Phase 1 ↔ Phase 2 연계: Virtual DOM + Diff + Patch 활용
-
-- Phase 2 의 상태가 변경되어 다시 렌더링할 때, Phase 1 에서 만든 Virtual DOM 을 그대로 활용합니다.
-- 동작 흐름
-  1. Virtual DOM 생성
-  2. 이전 Virtual DOM 과 비교 (Diff)
-  3. 바뀐 부분만 실제 DOM 에 반영 (Patch)
-
-> **목표: 전체를 다시 그리지 않고 필요한 부분만 업데이트**
-
-## 테스트 페이지 개발
-
-- Phase 1 과 Phase 2 에서 구현한 내용을 활용하여 브라우저에서 동작하는 웹 페이지를 구현합니다.
-- 어떤 주제라도 상관 없습니다. 다만, 반드시 사용자의 입력/클릭 등에 따라 화면이 변경되어야 합니다.
-
-## 기술 스택 / 제한
-
-- HTML, CSS, Javascript (또는 Typescript) — Vanilla
-- 외부 프레임워크 (React, Vue 등) 사용 금지
-
-## 공통 학습 원칙
-
-- "학습" 보다는 "구현" 이 우선입니다. AI 등을 적극적으로 활용하여 **결과물을 만들어내는 것** 이 최우선 목표입니다.
-  - 다만, 만들어진 결과물 중 핵심 로직에 대해서는 이해하고 설명할 수 있어야 합니다.
-  - 코드를 직접 작성하기 어려운 경우, 전체 코드를 AI 를 통해 생성해도 괜찮습니다. 다만, 생성된 코드를 반드시 학습하고 그 원리를 이해해야 합니다.
-- 추가적으로, 다른 팀과의 차별점을 둘 수 있는 **추가 구현 요소** 에 대해서도 함께 고민해 보시기 바랍니다.
-
-## 중점 포인트
-
-### Phase 1 — 브라우저 / DOM / Diff 관련
-
-- 브라우저에서 DOM 을 다루는 방법 (Document, Window)
-- 실제 DOM 의 **변화를 감지** 하기 위한 브라우저 API
-- 실제 DOM 이 느린 이유
-  - Reflow / Repaint 관점
-- Virtual DOM
-  - 구조
-  - 필요한 이유
-- Diff 알고리즘
-  - 동작 방식
-  - 최소 변경을 찾기 위한 5가지 핵심 케이스
-  - 실제 DOM 에 반영 방법
-- React 에서 실제 DOM 을 변경할 때, Virtual DOM 과 Diff 알고리즘의 동작 방식
-
-### Phase 2 — Component / State / Hooks 관련
-
-- UI 를 어떻게 Component 로 나눌 것인가?
-- State (상태) 는 어디에 두는 것이 좋은가?
-- setState 는 상태 변경 외에 무엇을 해야 할까?
-- 여러 상태 변경을 한 번에 처리하는 방법은?
-  - Batching 방법을 고민해 보세요. 단 **선택 과제**입니다.
-- 이번에 구현한 React 와 실제 React 의 차이점에 대해서 공부해 보세요.
-
-## 품질
-
-- **단위 테스트** 를 통해 각 모듈 (Virtual DOM 변환, Diff, Patch, useState, useEffect, useMemo 등) 을 검증합니다.
-- 기능 테스트를 통해 화면이 제대로 동작하는지 확인합니다.
-- 테스트 영역에 다양한 태그와 요소를 추가해 여러 동작과 변화를 자유롭게 확인해 보세요.
-- **엣지 케이스를 최대한 고려** 합니다.
-- 이력서와 포트폴리오에 포함할 수 있을 만큼 완성도 높은 수준으로 구현합니다.
-
-## 데모 실행
-
-Node.js 지원 범위는 `package.json`의 `engines`에 있습니다. 아래 명령을 실행하고 터미널에 표시되는 로컬 주소를 브라우저에서 엽니다.
-
-```sh
+```bash
 npm ci
+```
+
+```bash
 npm run dev
 ```
 
-| 경로 | 데모 |
+| 경로 | 페이지 |
 | --- | --- |
-| `/` | Phase 1 DOM 실습 |
-| `/todo.html` | Phase 2 오늘의 할 일 |
-
-### Phase 1 DOM 실습
-
-**HTML 코드 보기** 스위치를 켜면 실제 영역의 소스를 확인하고 테스트 영역의 태그·속성·텍스트를 수정할 수 있습니다. 테스트 코드는 루트 노드 하나를 기준으로 편집합니다. 스위치를 끄면 초안이 렌더링된 모습을 볼 수 있고, **Patch**를 누르면 실제 영역에 반영됩니다. **뒤로가기**와 **앞으로가기**는 두 영역을 같은 이력으로 맞춥니다. 뒤로 간 뒤 새 편집을 반영하면 그 위치에서 새 이력이 시작됩니다.
-
-### Phase 2 오늘의 할 일
-
-새 할 일을 입력하고 Enter 또는 **추가**를 누릅니다. 할 일 제목을 누르면 완료 상태가 바뀌고, **삭제**를 누르면 목록에서 사라집니다. **전체**, **완료**, **미완료** 필터를 바꿔도 완료 수는 전체 목록을 기준으로 표시합니다. 할 일은 메모리에 저장되며 새로고침하면 빈 목록에서 시작합니다.
-
-입력 제출이나 버튼 클릭으로 루트 컴포넌트의 `useState`를 갱신합니다. 루트가 다시 실행되면 `useMemo`가 목록과 필터를 기준으로 표시할 항목을 계산하고, 자식 함수는 props로 VNode를 만듭니다. 기존 Diff/Patch 엔진이 변경을 DOM에 반영한 뒤 `useEffect`가 완료 수를 문서 제목에 동기화합니다. [Todo 컴포넌트](src/app/todo.js) · [Phase 2 설계 계약](docs/PHASE2_SPEC.md)
-
-Todo ID는 상태에서 항목을 식별하는 데 사용합니다. Mini React 엔진은 형제 인덱스로 VNode를 비교하므로 목록 중간에서 항목을 삭제하면 같은 위치의 DOM 노드가 다른 항목에 재사용될 수 있습니다. React는 목록의 `key`로 항목을 대응시킵니다. [React 목록의 key](https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key)
-
-### Stage 6 상태 갱신 배칭
-
-같은 루트의 여러 setter를 한 번의 렌더링으로 반영하려면 `component.batch()`로 묶습니다. 아래에서 `count`가 `0`이면 updater 세 개가 순서대로 적용되고 DOM에는 `3`이 한 번에 반영됩니다.
-
-```js
-component.batch(() => {
-  setCount((count) => count + 1);
-  setCount((count) => count + 1);
-  setCount((count) => count + 1);
-});
-```
-
-Mini React의 배치 범위는 명시적으로 전달한 콜백이 반환될 때까지입니다. `await` 이후의 호출은 새 구간에서 동작합니다. React는 이벤트 핸들러의 상태 갱신을 자동으로 배치합니다. [Mini React 배칭 계약](docs/PHASE2_SPEC.md#stage-6--상태-갱신-배칭) · [React 상태 업데이트 배칭](https://react.dev/learn/queueing-a-series-of-state-updates#react-batches-state-updates)
-
-- [데이터 구조·인터페이스·의존성](docs/architecture.md)
-- [단계별 구현·검증·학습 계획](PLAN.md)
-- [AI 작업 공통 지침](AGENTS.md)
-- [JavaScript JSDoc 계약](src/core/contracts.js)
+| `/` | Phase 1 검증 페이지: 실제 영역, 테스트 영역, Patch·뒤로가기·앞으로가기, Patch 로그 |
+| `/todo.html` | Phase 2 할 일 앱 + Hooks 인스펙터 |
 
 | 명령 | 용도 |
 | --- | --- |
-| npm run dev | Phase 1·2 데모 개발 서버 실행 |
-| npm test | Vitest 전체 실행, watch 없이 종료 |
-| npm run test:unit | 순수 로직과 DOM 단위 테스트 |
-| npm run test:integration | jsdom 환경 통합 테스트 |
-| npm run test:watch | 개발 중 변경 감지 |
-| npm run typecheck | JS/JSDoc 계약 정적 검사, 출력 파일 없음 |
-| npm run check | 정적 검사 후 전체 테스트 |
+| `npm test` | Vitest 전체 실행 |
+| `npm run typecheck` | JS/JSDoc 계약 정적 검사 |
+| `npm run check` | 정적 검사 후 전체 테스트 |
 
-Vitest는 기능별 단위 테스트와 엔진·데모 통합 테스트를 실행합니다. `tests/contracts`는 JSDoc 타입 검사를 위한 fixture입니다. DOM이 필요한 테스트에는 파일 첫 줄에 `// @vitest-environment jsdom`을 붙입니다.
+## 동작 흐름
+
+```mermaid
+flowchart LR
+  E[클릭·입력] --> S[setState<br/>값 갱신 + 리렌더 요청]
+  S --> R[루트 함수 다시 실행<br/>hooks 배열에서 상태 꺼냄]
+  R --> V[새 VDOM]
+  V --> D[diff<br/>이전 VDOM vs 새 VDOM]
+  D --> P[patch<br/>바뀐 DOM만 수정]
+  P --> F[useEffect 실행]
+```
+
+Phase 1에서는 사람이 테스트 영역을 고치고 Patch 버튼을 눌러 이 흐름의 뒷부분(VDOM → diff → patch)을 돌립니다. Phase 2에서는 setState가 Patch 버튼을, 루트 컴포넌트 함수가 테스트 영역을 대신합니다. diff와 patch는 그대로 재사용합니다.
+
+## 폴더 구조
+
+```text
+src/
+  core/        contracts.js(타입 계약) · vnode.js(h) · security.js(위험 입력 차단) · diff.js(key·LIS) · history.js
+  dom/         from-dom.js(DOM → VNode) · render.js(VNode → DOM) · patch.js(MOVE 포함) · events.js
+  component/   function-component.js(FunctionComponent, useState·useEffect·useMemo, child, batch)
+  app/         main.js(Phase 1 페이지) · todo.js · patch-report.js · inspector.js
+index.html     Phase 1 검증 페이지
+todo.html      Phase 2 할 일 + Hooks 인스펙터
+docs/          architecture.md · PHASE2_SPEC.md · CONCEPTS.md · SCHEDULE.md · EVALUATION.md · MERGE_PLAN.md
+```
+
+## Phase 1: Virtual DOM, Diff, Patch
+
+### DOM 조작이 느린 이유
+
+DOM API 호출 자체가 느린 것은 아닙니다. 호출 뒤에 따라오는 **Reflow**(위치·크기 다시 계산)와 **Repaint**(픽셀 다시 칠하기)가 비쌉니다. 노드를 추가·삭제하거나 글자를 바꾸면 Reflow가 생기고, 바뀐 요소의 부모·형제·자식까지 다시 계산될 수 있습니다. 그래서 실제 DOM을 건드리는 횟수를 줄이는 것이 VDOM의 목적입니다.
+
+### Virtual DOM
+
+실제 DOM 트리를 같은 모양의 가벼운 JS 객체 트리로 옮긴 것입니다.
+
+```js
+{ kind: 'element', tag: 'li', props: { attrs: { class: 'done' }, events: {} }, children: [...], key: '3' }
+{ kind: 'text', value: '장보기' }
+```
+
+객체를 만들고 비교하는 일은 메모리 안에서 끝나 Reflow가 생기지 않습니다. 비교 결과(바뀐 곳)만 실제 DOM에 반영합니다. DOM을 VDOM으로 읽을 때는 화면에 보이지 않는 노드를 버립니다.
+
+- 주석은 버리고, 주석 양옆의 텍스트는 하나로 합칩니다.
+- 줄바꿈이 들어간 공백만 있는 텍스트는 들여쓰기이므로 버립니다. 띄어쓰기만 있는 텍스트는 화면에 보이므로 남깁니다.
+- `<pre>`, `<textarea>` 안의 공백은 내용이므로 손대지 않습니다.
+
+실제 영역도 같은 규칙으로 정리해 두기 때문에(`normalizeDOM`) 화면의 `childNodes` 순서와 VNode의 `children` 순서가 항상 같습니다.
+
+### Diff: 같은 위치끼리 위에서부터 비교
+
+| 상황 | Patch | 실제 DOM API |
+| --- | --- | --- |
+| 새 노드만 있음 | `INSERT` | `insertBefore(createDOM(v), anchor)` |
+| 이전 노드만 있음 | `REMOVE` | `remove()` |
+| 태그 종류가 다름 | `REPLACE` | `replaceWith(createDOM(v))` |
+| 텍스트 내용이 다름 | `TEXT` | `text.data = value` |
+| 속성·이벤트가 다름 | `PROPS` | `setAttribute` / `removeAttribute` / `add·removeEventListener` |
+| key 목록의 순서만 바뀜 | `MOVE` | `insertBefore(기존 노드, anchor)` |
+
+자식은 같은 인덱스끼리 재귀로 비교합니다. 같은 부모의 노드 여러 개를 지울 때는 뒤에서부터 지워야 앞 인덱스가 밀리지 않습니다. 모든 Patch 경로는 바로 앞 Patch까지 적용한 DOM을 기준으로 합니다.
+
+### DOM 변화 감지: MutationObserver
+
+MutationObserver는 실제 DOM이 바뀔 때마다 기록(MutationRecord)을 남기는 브라우저 API입니다. Phase 1 페이지는 이것으로 "patch가 DOM을 몇 번 바꿨는지"를 세어, 같은 변경을 innerHTML로 통째로 바꿨을 때와 나란히 보여 줍니다. 예를 들어 제목 글자 하나를 바꾸면 patch는 노드 1개, innerHTML 전체 교체는 32개를 바꿉니다.
+
+## Phase 2: Component, State, Hooks
+
+### 함수는 매번 다시 실행되는데, 상태는 어떻게 유지할까?
+
+상태를 함수 안(지역 변수)이 아니라 함수 바깥인 `FunctionComponent` 인스턴스의 `hooks` 배열에 둡니다. 렌더를 시작할 때 슬롯 위치를 0으로 되돌리고, hook을 부를 때마다 다음 칸을 씁니다. 매 렌더 같은 순서로 hook을 부르므로 같은 칸을 다시 만납니다. 그래서 조건문 안에서 hook을 쓰면 안 되고, 순서가 바뀌면 엔진이 오류를 냅니다.
+
+```text
+렌더 1: useState(초기 목록) → hooks[0]   useState('all') → hooks[1]   useMemo(...) → hooks[2]   useEffect(...) → hooks[3]
+렌더 2: useState(초기 목록) → hooks[0]   ← 초기값은 무시하고 저장된 값을 꺼냄
+```
+
+### setState가 상태 변경 말고 하는 일
+
+setState는 값만 바꾸지 않고 **리렌더를 요청**합니다. 루트 함수를 다시 실행해 새 VDOM을 만들고, 이전 VDOM과 diff한 뒤 바뀐 곳만 patch합니다. Patch가 실패하면 슬롯 값과 화면을 마지막으로 성공한 상태로 되돌립니다. 여러 setState를 한 번의 렌더로 묶고 싶으면 `component.batch()` 안에서 부릅니다. Effect 안에서 부른 setState는 큐에 넣었다가 Effect가 모두 끝난 뒤 차례로 반영하고, 연속 50번을 넘으면 무한 갱신으로 보고 멈춥니다.
+
+### 컴포넌트 분리와 state 위치
+
+화면에서 한 가지 역할을 맡는 덩어리로 나눴습니다(`TodoForm`, `TodoFilters`, `TodoList`). 상태는 루트 `TodoApp`에만 두고, 자식은 props로 값과 핸들러를 받아 VNode를 돌려주는 순수 함수입니다(Lifting State Up). 자식은 `child(Component, props)`로 실행하는데, 이때 자식이 hook을 부르면 엔진이 오류를 냅니다.
+
+### 그 밖의 구현
+
+- `useEffect`: DOM 반영이 끝난 뒤 실행합니다. deps가 같으면 건너뛰고, 다시 실행하기 전과 `unmount()` 때 cleanup을 부릅니다. cleanup 하나가 실패해도 나머지를 모두 실행한 뒤 오류를 전달합니다.
+- `useMemo`: deps가 같으면 지난번 값을 그대로 돌려줍니다. 새 값은 DOM 반영에 성공한 뒤에만 캐시에 넣습니다.
+- 이벤트: VNode의 `events`에 함수를 담고, patch가 노드별로 `addEventListener`/`removeEventListener`를 관리합니다(WeakMap 기록).
+
+## 차별점
+
+### 1. key 기반 리스트 재조정 (LIS)
+
+위치로 짝짓는 diff는 목록 맨 앞에 하나만 넣어도 뒤의 모든 항목을 "글자가 바뀜"으로 봅니다. 형제 전부에 key가 있으면 같은 key를 같은 노드로 보고, 노드를 **지우지 않고 옮깁니다**(`MOVE`). 가장 긴 증가 부분수열(LIS)에 든 노드는 순서가 이미 맞으므로 그대로 두고 나머지만 옮기기 때문에 MOVE 개수가 최소가 됩니다. 할 일 목록은 항목 id를 key로 씁니다.
+
+| 5개 목록에서 | 위치 비교 | key 비교 |
+| --- | --- | --- |
+| 맨 앞에 추가 | TEXT 5 + INSERT 1 | INSERT 1 |
+| 순서 뒤집기 | TEXT 4 | MOVE 4 (기존 노드 재사용) |
+
+### 2. 실패하면 마지막 화면으로 복구
+
+Patch는 하나씩 적용하기 직전에 경로·노드 종류·값을 검사합니다. 중간에 실패하면 Phase 1 페이지와 `FunctionComponent` 모두 마지막으로 성공한 VNode로 화면을 되돌리고, 이력과 상태도 이전 값으로 유지합니다.
+
+### 3. Patch 로그와 innerHTML 비용 비교
+
+Phase 1 페이지 아래에 방금 적용한 Patch 목록과, MutationObserver로 센 "patch가 바꾼 노드 수 vs innerHTML 전체 교체" 수를 보여 줍니다.
+
+### 4. Hooks 인스펙터
+
+할 일 페이지 오른쪽에 hooks 배열(칸 번호, 종류, 값, deps)과 렌더 번호, 이번 렌더의 Patch 목록을 보여 줍니다. 인스펙터 자체도 미니 리액트로 그립니다(`FunctionComponent.onCommit`).
+
+## 보안: 위험한 입력은 엔진 한 곳에서 막기
+
+모든 VNode는 `h()`를 거쳐 만들어집니다. Phase 1에서 DOM을 읽을 때도(`domToVNode`), Phase 2 컴포넌트가 화면을 그릴 때도 같은 `h()`를 지나므로 `src/core/security.js`의 규칙 하나로 두 경로를 함께 막습니다. 렌더(`createDOM`)와 Patch(`PROPS`)도 같은 함수로 한 번 더 검사합니다.
+
+| 막는 것 | 이유 |
+| --- | --- |
+| `onclick`·`ONERROR` 같은 `on*` 문자열 속성 | 문자열 코드가 인라인 핸들러로 실행됩니다. 이벤트는 `events`에 함수로 넣습니다 |
+| `href`·`src`·`action`·`formaction`·`xlink:href`·`data`의 `javascript:` URL | 클릭·로드 때 스크립트가 실행됩니다. 브라우저처럼 앞의 제어문자와 중간의 탭·줄바꿈을 무시하고 검사합니다(`java\tscript:`도 막음) |
+| `script`·`style`·`iframe`·`object`·`embed`·`base`·`link`·`meta` 태그 | 스크립트를 실행하거나 문서 밖 자원·설정을 끌어옵니다 |
+
+막히면 `UnsafeInputError`가 나고, Phase 1 페이지는 "막힌 입력: 이유"를 상태 표시줄에 보여 준 뒤 저장된 화면으로 되돌립니다.
+
+VDOM 공백 규칙에도 한계가 있습니다. `<b>a</b>` 줄바꿈 `<i>b</i>`처럼 인라인 요소 사이의 줄바꿈 공백도 버리므로 화면의 "a b"가 "ab"로 붙습니다. `white-space: pre`를 CSS로 준 요소는 태그 이름만 보고 판단하므로 보존하지 않습니다.
+
+막지 않는 것도 있습니다. `style` 속성은 문자열로 받으므로 사용자 값을 넣으면 CSS 주입이 가능하고, `data:` URL과 `srcdoc`은 검사하지 않습니다. 페이지에 CSP도 없습니다.
+
+## 실제 React와의 차이
+
+| 이번 구현 | 실제 React |
+| --- | --- |
+| 루트 하나만 hooks 배열을 갖고, 자식은 상태 없는 함수 | 컴포넌트마다 Fiber 노드(hooks 연결 리스트) |
+| 렌더를 한 번에 끝까지 재귀 (중간에 멈출 수 없음) | Fiber로 작업을 쪼개 멈추고 이어서 함 |
+| `batch()`로 명시한 구간만 묶음 | React 18부터 이벤트 출처와 상관없이 자동 batching [^batch] |
+| `useEffect`를 patch 직후 동기로 실행 | 보통 화면을 그린 뒤 실행 [^effect] |
+| 노드마다 리스너를 붙이고 WeakMap으로 기록 | 루트 컨테이너 하나에 위임 + 합성 이벤트 [^events] |
+| key 재조정: LIS로 MOVE 최소화 | 앞에서부터 훑으며 lastPlacedIndex로 이동 여부를 정함 [^reconcile] |
+| 속성은 문자열만, `style` 객체·SVG 미지원 | DOM 프로퍼티, style 객체, SVG 네임스페이스 처리 |
+
+[^batch]: [React v18.0: Automatic Batching](https://react.dev/blog/2022/03/29/react-v18), [Queueing a Series of State Updates](https://react.dev/learn/queueing-a-series-of-state-updates)
+[^effect]: [useEffect](https://react.dev/reference/react/useEffect)
+[^events]: [React v17.0: Changes to Event Delegation](https://legacy.reactjs.org/blog/2020/10/20/react-v17.html)
+[^reconcile]: [facebook/react `ReactChildFiber.js`](https://github.com/facebook/react/blob/main/packages/react-reconciler/src/ReactChildFiber.js)
+
+## 두 구현을 합친 방식
+
+두 사람의 구현은 VNode 모양, Patch 형식, 공백 규칙이 달라서 모듈 단위로 섞을 수 없었습니다([평가 기준](docs/EVALUATION.md), [평가와 병합 계획](docs/MERGE_PLAN.md)). 그래서 한쪽 계약을 뼈대로 정하고 다른 쪽 기능을 그 위에 다시 구현했습니다.
+
+**sohee 구현을 뼈대로 고른 이유**
+
+- 과제 제약("Hook은 루트에서만, 자식은 순수 함수")에 맞는 단순한 구조였습니다. jiho 구현의 자식 인스턴스 기능은 이 제약을 지키려면 어차피 걷어내야 했습니다.
+- `core`·`dom`·`component`로 계층이 나뉘어 있고, JSDoc + `tsc`로 계약을 검사합니다.
+- Patch 직전 검사, 실패 복구, Effect 오류 모으기, 무한 갱신 상한처럼 오류를 다루는 부분이 이미 갖춰져 있었습니다.
+- jiho 쪽 강점(key·LIS·MOVE, 엔진 전체 보안 규칙, Patch 로그, Hooks 인스펙터)은 계약을 크게 바꾸지 않고 옮겨 붙일 수 있었습니다.
+
+## 트러블슈팅: 자식 컴포넌트도 state를 쓰게 해 봤다가 되돌린 이유
+
+**상황.** 과제는 "state는 루트에만 두고 자식은 props만 받는다"는 제약을 둡니다. 그런데 입력창 글자처럼 한 컴포넌트만 쓰는 작은 상태까지 루트로 올리면, props를 여러 단계 내려보내야 하고 글자 하나를 칠 때마다 루트부터 다시 실행됩니다.
+
+**시도.** `jiho-phase2` 브랜치(커밋 `cc59c45`)에서 React처럼 자식 컴포넌트마다 상자(인스턴스)를 만들어 자기 `hooks` 배열을 갖게 했습니다. 자식 상자는 key로, key가 없으면 "같은 부모 안에서 같은 컴포넌트를 몇 번째로 불렀나"로 지난번 상자와 짝지었습니다. setState는 그 상자만 다시 실행하고, 루트까지 가는 길의 VNode만 복사해 루트부터 diff했습니다. 부모가 더 이상 부르지 않는 상자는 화면에서 빠진 것으로 보고 cleanup을 부른 뒤 버렸습니다.
+
+**문제.**
+
+- 과제 제약을 벗어납니다. 평가 기준의 "hook은 루트에서만" 항목에서 감점 대상이었습니다.
+- 상자 짝짓기, 바뀐 자식의 VNode 위치 찾기(트리를 따라가는 O(N) 탐색), 복사한 조상 VNode를 상자 기록에 다시 연결하는 일까지 엔진이 떠안게 되어, 컴포넌트 모듈이 520줄을 넘었습니다.
+- 반대로 sohee 구현은 자식 hook을 막지 않아서, 자식이 `useState`를 부르면 그 칸이 루트의 hooks 배열에 조용히 섞여 들어갔습니다.
+
+**해결.** 합친 엔진은 자식을 `child(Component, props)`로 실행하고, 그동안 hook 호출을 오류로 막습니다. 자식은 props만 받는 순수 함수로 두고, 작은 상태도 루트에 둡니다. 루트가 다시 실행되는 비용은 key 재조정과 `useMemo`로 줄입니다. 남은 한계도 있습니다. `TodoForm(props)`처럼 `child()` 없이 직접 호출하면 루트 몸체와 구분할 수 없어 막지 못합니다.
+
+## 테스트
+
+`npm test`: 25개 파일, 226개 테스트가 통과합니다. `npm run typecheck`도 통과합니다.
+
+| 위치 | 확인하는 것 |
+| --- | --- |
+| `tests/unit` | vnode, from-dom, diff, patch, render, history, useState, useEffect, useMemo, batch, todo-controls |
+| `tests/integration` | 엔진 왕복, 이력, Phase 1 페이지(복구·여러 루트·미래 이력 분기), 컴포넌트 마운트·갱신·Effect·batch·memo, 할 일 데모 |
+| `tests/integration/team-merge.test.js` | 병합으로 더한 기능: key INSERT·MOVE와 노드 재사용, Phase 1·2 공통 위험 입력 차단, 자식 hook 차단, 주석 초안 반영, 막힌 입력 이유 표시, onCommit 순서와 오류 격리 |
+
+## 과제 요구사항 대응
+
+| 요구사항 | 구현 위치 |
+| --- | --- |
+| DOM → VDOM 변환, diff 5가지 케이스, 바뀐 부분만 patch | `src/dom/from-dom.js`, `src/core/diff.js`, `src/dom/patch.js` |
+| 실제 영역 · 테스트 영역 · Patch / 뒤로가기 / 앞으로가기 | `index.html`, `src/app/main.js` |
+| 함수형 컴포넌트, `FunctionComponent`(hooks · mount · update) | `src/component/function-component.js` |
+| hook과 state는 루트에서만, 자식은 props만 받는 순수 함수 | `child()`가 자식 실행 중 hook 호출을 막음 |
+| state 변경 시 VDOM → diff → patch 재사용 | `FunctionComponent`의 commit |
+| `useState` · `useEffect` · `useMemo` | `src/component/function-component.js` |
+| Batching (선택) | `component.batch()` |
+| 데모 페이지: 입력·클릭에 따른 부분 업데이트 | `todo.html` (최종 데모는 별도 주제로 예정) |
+| 모듈별 단위 테스트, 기능 테스트, 엣지 케이스 | `tests/` |
+
+## 문서
+
+- [데이터 구조·인터페이스·의존성](docs/architecture.md) · [Phase 2 설계 계약](docs/PHASE2_SPEC.md) · [JSDoc 계약](src/core/contracts.js)
+- [개념 정리](docs/CONCEPTS.md) · [일정](docs/SCHEDULE.md) · [구현 계획](PLAN.md) · [AI 작업 지침](AGENTS.md)

@@ -14,19 +14,18 @@
 ## 폴더 구조
 
 ```
-README.md          # 과제 소개 (GitHub 첫 화면)
+README.md          # 프로젝트 소개와 설명 항목 (GitHub 첫 화면)
 CLAUDE.md          # 과제 요구사항 (루트에 있어야 Claude가 읽음)
-docs/              # 문서: SCHEDULE, CONCEPTS, PHASE1_PLAN, PROMPT_GUIDE
+AGENTS.md · PLAN.md
+docs/              # SCHEDULE, CONCEPTS, architecture, PHASE2_SPEC, EVALUATION, MERGE_PLAN
 src/
-  types.js         # 계약: VNode·Patch 형식, 정규화 규칙          ✅ Phase 1
-  vdom.js          # DOM/HTML ↔ VNode, createElement, vnodeToHTML ✅ Phase 1
-  diff.js          # diff(old, new) → patches                    ✅ Phase 1
-  patch.js         # patch(container, patches)                   ✅ Phase 1
-  history.js       # 뒤로/앞으로 가기용 VNode 기록                 ✅ Phase 1
-  component.js     # h(), FunctionComponent, useState/useEffect/useMemo  (Phase 2)
-phase1/            # index.html · main.js · style.css 검증 페이지   ✅ Phase 1
-app/index.html     # Phase 2 데모 앱                              (Phase 2)
-tests/             # fixtures + 모듈별 단위·통합·엣지 테스트 (Vitest + jsdom)
+  core/            # contracts(타입) · vnode(h) · security · diff(key·LIS 포함) · history
+  dom/             # from-dom · render · patch(MOVE 포함) · events
+  component/       # FunctionComponent · useState/useEffect/useMemo · child · batch
+  app/             # Phase 1 검증 페이지(main) · 할 일(todo) · patch-report · inspector
+index.html         # Phase 1 검증 페이지
+todo.html          # Phase 2 할 일 + Hooks 인스펙터
+tests/unit · tests/integration   # Vitest + jsdom
 ```
 
 - 프레임워크 없이 ES Module로 만듭니다. 브라우저는 `file://`로 연 페이지에서 모듈 import를 막기 때문에 로컬 서버로 띄워야 합니다(예: `npx serve`).

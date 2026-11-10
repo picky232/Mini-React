@@ -9,17 +9,23 @@ src/
   core/
     contracts.js        # 데이터·함수 타입의 단일 기준
     vnode.js            # Stage 1: VNode 생성과 자식 정규화
-    diff.js             # Stage 2: 순수 비교 → Patch 목록
+    security.js         # 병합: 위험 태그·속성 검사 (h·render·patch가 공유)
+    diff.js             # Stage 2: 순수 비교 → Patch 목록 (병합: key·LIS·MOVE)
     history.js          # Stage 4: 순수 이력 연산
   dom/
     from-dom.js         # Stage 1: DOM → VNode
     render.js           # Stage 1: VNode → 새 DOM
     patch.js            # Stage 3: 기존 DOM 부분 변경
     events.js           # Stage 3: 렌더와 Patch의 리스너 기록 공유
+  component/
+    function-component.js # Phase 2: FunctionComponent, Hooks, child, batch, onCommit
   app/
-    main.js             # Stage 5: 두 영역·버튼 연결
-    style.css           # Stage 5
+    main.js             # Stage 5: 두 영역·버튼 연결 (병합: Patch 로그·innerHTML 비교)
+    patch-report.js     # 병합: Patch 설명, MutationObserver 집계
+    todo.js · inspector.js # Phase 2 할 일 앱과 Hooks 인스펙터
+    style.css · todo.css
 index.html              # Stage 5: 실제 영역, 편집 영역, 세 버튼
+todo.html               # Phase 2 할 일 + Hooks 인스펙터
 tests/
   contracts/            # JSDoc 정적 검사 fixture
   unit/                 # 순수 로직과 DOM 단위 테스트
@@ -62,9 +68,10 @@ tests/
 - `h`는 입력 props·배열을 복사한다. History 저장 시 트리·props·배열을 복사해 스냅샷을 분리한다. 이벤트 함수 참조는 유지하며 함수가 참조하는 외부 상태까지 복원하지 않는다. DOM 노드를 트리에 넣지 않는다.
 - HTML Element와 Text만 지원한다. 소문자 태그, 문자열 속성, `style`·`class` 문자열을 사용한다. boolean 속성은 존재 시 `''`, 제거 시 키 삭제다. `false` 문자열은 제거가 아니다.
 - `events`는 `click` 같은 이름 → EventListener 참조다. DOM에서 기존 리스너를 읽을 수 없으므로 `domToVNode`는 `events: {}`를 반환한다. 함수 비교는 참조 동일성이다. 렌더링 시 `addEventListener`, 변경·삭제 시 기존 함수를 `removeEventListener`로 해제한다. DOM 노드에 연결된 리스너의 내부 기록은 DOM 계층이 관리한다.
-- 공백·빈 텍스트 노드를 그대로 유지하며 경로 인덱스는 `children`이 아닌 `childNodes`와 대응한다. 주석, SVG, template, inline `on*` 속성 등 지원하지 않는 입력은 조용히 누락하지 않고 TypeError로 거절한다.
+- `domToVNode`는 주석을 버리고 양옆 텍스트를 합친다. 줄바꿈이 들어간 공백만 있는 텍스트와 빈 텍스트도 버리고, 띄어쓰기만 있는 텍스트는 남긴다. `pre`·`textarea` 안의 공백은 그대로 둔다. app은 영역을 읽기 전에 `normalizeDOM`으로 같은 노드를 실제 DOM에서도 지우므로 경로 인덱스는 `childNodes`와 대응한다. `h()`로 만든 트리는 이 규칙을 적용하지 않고 받은 자식을 그대로 둔다.
+- SVG, template은 TypeError로 거절한다. 위험한 입력(`on*` 문자열 속성, URL 속성의 `javascript:`, `script`·`style`·`iframe`·`object`·`embed`·`base`·`link`·`meta` 태그)은 `security.js`가 `UnsafeInputError`(TypeError 하위 클래스)로 거절한다. `h`·`createDOM`·`PROPS` 적용이 같은 검사를 쓰므로 Phase 1 입력과 Phase 2 컴포넌트가 같은 규칙으로 막힌다.
 - form의 `.value`·`.checked`처럼 속성과 별개인 live property, 포커스·selection은 Phase 1 스냅샷 범위 밖이다. 테스트 영역은 Stage 5에서 루트 내부를 contenteditable로 편집한다.
-- key·Fragment·컴포넌트 VNode는 Phase 1에서 제외한다. Phase 2 자식 함수는 평가 후 동일한 Element/Text VNode를 반환한다.
+- `h(tag, { attrs, events, key }, children)`의 key는 `ElementVNode.key`(문자열)로 옮긴다. DOM 속성이 아니며 History 스냅샷에도 복사한다. Fragment·컴포넌트 VNode는 없다. Phase 2 자식 함수는 `child()`로 평가되어 동일한 Element/Text VNode를 반환한다.
 
 ## Patch 주소와 적용 규칙
 
@@ -77,12 +84,13 @@ tests/
 | REPLACE | path, node | 해당 노드를 새 노드로 교체 |
 | TEXT | path, value | Text 노드의 값만 변경 |
 | PROPS | path, changes | Element의 속성·이벤트를 추가·변경·제거 |
+| MOVE | path(부모), from, to | 현재 `from`번 자식을 현재 `to`번 자식 앞으로 옮김; `to`가 자식 수면 맨 뒤 |
 
 - `[]`는 루트다. INSERT `[]`는 빈 컨테이너에서만 유효하다. REMOVE `[]` 이후 컨테이너는 비며, 빈 트리는 null이다.
 - `[i, j]`는 현재 루트의 `childNodes[i].childNodes[j]`다. 인덱스는 0 이상의 정수다.
 - 모든 경로는 **앞선 Patch까지 적용한 현재 DOM** 기준이다. 목록은 순서가 있는 명령이며 재정렬하지 않는다. Diff 구현 시 자식 삭제에 따른 인덱스 이동을 반드시 테스트한다.
 - PROPS의 `changes`는 `setAttrs`, `removeAttrs`, `setEvents`, `removeEvents` 네 필드를 모두 갖는다. 동일 이름을 같은 범주의 set과 remove에 함께 넣지 않는다.
-- Diff는 형제 노드를 인덱스로 대응한다. 재배열은 필요한 TEXT/PROPS/REPLACE/INSERT/REMOVE로 표현하며 최소 이동 수나 key 기반 정체성을 보장하지 않는다.
+- Diff는 형제 노드를 인덱스로 대응한다. 단, 양쪽 형제 전부에 서로 다른 key가 있으면 key로 짝짓는다. 순서는 (1) 같은 key끼리 이전 위치 경로로 재귀 비교, (2) 사라진 key를 뒤에서부터 REMOVE, (3) 가장 긴 증가 부분수열(LIS) 밖의 노드만 MOVE, (4) 새 key를 새 인덱스 오름차순으로 INSERT다. 한 층의 구조 변경이 자식 내부 Patch 뒤에 나오므로 내부 경로는 이전 위치 그대로 맞는다.
 - 잘못된 경로·노드 종류·컨테이너 상태는 적용 시 예외다. 롤백은 제공하지 않으므로 목록 중간 실패 시 앞선 변경은 남을 수 있다. 정상 app 흐름은 저장된 트리와 실제 DOM을 일치시켜 유효한 Patch만 적용하며, 오류 시 이력을 진행시키지 않고 현재 스냅샷으로 복구한다.
 
 ## 함수 인터페이스
@@ -120,7 +128,7 @@ Phase 2는 과제 README의 `FunctionComponent` 클래스(`hooks`, `mount`, `upd
 
 | 기본값 | 이점 | 비용·대안 |
 | --- | --- | --- |
-| 인덱스 기반 형제 비교 | 코드·테스트·에이전트 문맥이 작음 | 중간 삽입·재정렬 시 변경량 증가. 필요하면 key·MOVE를 별도 단계로 도입 |
+| 인덱스 비교 + key가 있으면 key·LIS 비교 | key 없는 Phase 1 입력은 단순하게, 목록은 노드를 재사용 | key가 일부만 있거나 겹치면 인덱스 비교로 돌아감 |
 | VNode 스냅샷 이력 | Undo/Redo와 분기 설명·검증이 쉬움 | 이력 수 H, 트리 크기 N에 대해 O(HN) 메모리. 대안은 역 Patch 이력이나 구조 공유 |
 | JS + JSDoc 검사 | Vanilla JS 유지, 계약 위반을 구현 전에 발견 | 개발 의존성 TypeScript 1개 추가. 대안은 검사 없는 JSDoc 또는 TS 소스 |
 

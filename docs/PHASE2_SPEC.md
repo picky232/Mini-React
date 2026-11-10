@@ -58,3 +58,13 @@
 - 같은 인스턴스의 중첩 호출은 가장 바깥쪽 배치에 합류한다. setter 호출이 없으면 렌더링을 생략한다. 콜백이 Promise를 반환하면 그 시점에 배치를 반영한다. `await` 이후에 호출한 setter는 새 구간에서 동작한다.
 - 마운트나 갱신 직후 Effect에서 시작한 배치는 기존 Effect 큐에 단일 갱신으로 들어간다. DOM 반영 후 콜백들이 종료되면 예약 순서에 맞춰 실행된다. 배치를 모으는 동안 같은 인스턴스의 `update()` 또는 `unmount()`를 직접 호출하면 오류가 발생한다.
 - 바깥쪽 콜백에서 동기 오류가 전파되면 모은 요청을 폐기한다. updater·렌더링·Patch에서 오류가 발생하면 배치의 상태 변경을 역순으로 되돌린다. DOM 반영이 끝난 뒤 발생한 Effect 오류는 반영된 상태를 유지한다.
+
+## 병합 — 루트 전용 Hook 규칙과 커밋 알림
+
+| 인터페이스 | 계약 |
+| --- | --- |
+| `child(render, props): VNode` | 자식 컴포넌트를 실행한다. 실행하는 동안 `useState`·`useEffect`·`useMemo`와 setter 호출은 `Error`다. 자식은 props만 받아 VNode를 돌려주는 순수 함수다. |
+| `component.onCommit` | DOM 반영에 성공하고 그 커밋의 Effect가 끝날 때마다 `{ patches, hooks, renders }`로 불린다. Hooks 인스펙터 같은 개발 도구용이며 기본값은 `null`이다. 여기서 난 오류는 `console.error`로만 남기고 커밋을 되돌리지 않는다. |
+
+- `TodoForm(props)`처럼 `child()` 없이 직접 호출한 자식은 루트 몸체와 구분할 수 없어 막지 못한다. 자식은 항상 `child()`로 부른다.
+- 목록 항목은 `h('li', { attrs, events, key: id }, ...)`처럼 key를 넘기면 diff가 위치 대신 key로 짝짓는다.
