@@ -9,9 +9,17 @@ import { replaceDOMTree } from '../dom/render.js';
 /** @typedef {() => void} Cleanup */
 /** @typedef {() => void | Cleanup} Effect */
 /** @typedef {{ kind: 'effect', dependencies: readonly unknown[] | undefined, cleanup: Cleanup | undefined }} EffectSlot */
-/** @typedef {{ kind: 'state' } | EffectSlot} HookSlot */
+/** @typedef {{ kind: 'memo', dependencies: readonly unknown[], value: unknown }} MemoSlot */
+/** @typedef {{ kind: 'state' } | EffectSlot | MemoSlot} HookSlot */
 /** @typedef {() => (() => void)} StateChange */
-/** @typedef {{ hooks: HookSlot[], nextIndex: number, update: (changeState: StateChange) => void, pendingEffects: (() => void)[] }} RenderContext */
+/**
+ * @typedef {object} RenderContext
+ * @property {HookSlot[]} hooks
+ * @property {number} nextIndex
+ * @property {(changeState: StateChange) => void} update
+ * @property {(() => void)[]} pendingEffects
+ * @property {[number, MemoSlot][]} pendingMemos
+ */
 
 const MAX_EFFECT_UPDATE_PASSES = 50;
 
@@ -71,7 +79,7 @@ export function useState(initialValue) {
   const context = requireRender('useState');
   const index = context.nextIndex++;
   const hook = context.hooks[index];
-  if (hook?.kind === 'effect') {
+  if (hook !== undefined && hook.kind !== 'state') {
     throw new Error('Hook order changed between renders.');
   }
 
@@ -100,7 +108,7 @@ export function useEffect(effect, dependencies) {
   const context = requireRender('useEffect');
   const index = context.nextIndex++;
   const hook = context.hooks[index];
-  if (hook?.kind === 'state') {
+  if (hook !== undefined && hook.kind !== 'effect') {
     throw new Error('Hook order changed between renders.');
   }
 
@@ -121,6 +129,35 @@ export function useEffect(effect, dependencies) {
     slot.cleanup = typeof result === 'function' ? result : undefined;
     slot.dependencies = nextDependencies;
   });
+}
+
+/**
+ * 의존성이 그대로면 이전에 반영한 계산 결과의 참조를 재사용한다.
+ * @template T
+ * @param {() => T} calculate
+ * @param {readonly unknown[]} dependencies
+ * @returns {T}
+ */
+export function useMemo(calculate, dependencies) {
+  const context = requireRender('useMemo');
+  if (!Array.isArray(dependencies)) {
+    throw new TypeError('useMemo dependencies must be an array.');
+  }
+
+  const index = context.nextIndex++;
+  const hook = context.hooks[index];
+  if (hook !== undefined) {
+    if (hook.kind !== 'memo') throw new Error('Hook order changed between renders.');
+    if (sameDependencies(hook.dependencies, dependencies)) {
+      return /** @type {T} */ (hook.value);
+    }
+  }
+
+  // 렌더 중 계산한 값은 바로 반환하고, 캐시 교체는 DOM 반영 성공까지 미룬다.
+  const nextDependencies = [...dependencies];
+  const value = calculate();
+  context.pendingMemos.push([index, { kind: 'memo', dependencies: nextDependencies, value }]);
+  return value;
 }
 
 /**
@@ -250,6 +287,7 @@ export class FunctionComponent {
       nextIndex: 0,
       update: (changeState) => this.#update(changeState),
       pendingEffects: [],
+      pendingMemos: [],
     };
     activeRender = context;
     try {
@@ -263,7 +301,7 @@ export class FunctionComponent {
       if (this.#previousVNode !== null && context.nextIndex !== hookCount) {
         throw new Error('Hook order changed between renders.');
       }
-      return { vnode, pendingEffects: context.pendingEffects };
+      return { vnode, pendingEffects: context.pendingEffects, pendingMemos: context.pendingMemos };
     } finally {
       activeRender = previousRender;
     }
@@ -319,11 +357,14 @@ export class FunctionComponent {
     const hookCount = this.hooks.length;
     let applyingPatches = false;
     try {
-      const { vnode, pendingEffects } = this.#renderVNode();
+      const { vnode, pendingEffects, pendingMemos } = this.#renderVNode();
       // 첫 마운트는 null과 비교해 루트를 삽입하고, 갱신은 마지막으로 적용한 트리와 비교한다.
       const patches = diff(previous, vnode);
       applyingPatches = true;
       applyPatches(container, patches);
+      for (const [index, slot] of pendingMemos) {
+        this.hooks[index] = slot;
+      }
       this.#previousVNode = vnode;
       this.#container = container;
       return pendingEffects;
