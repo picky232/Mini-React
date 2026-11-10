@@ -318,9 +318,14 @@ describe('memo: props가 같으면 자식을 다시 부르지도, 비교하지�
 });
 
 describe('hook 규칙을 코드로 강제한다', () => {
-  it('자식 컴포넌트에서 hook을 부르면 에러', () => {
-    const Child = () => { useState(0); return h('p', null); };
-    expect(() => mount(() => h(Child))).toThrow(/루트 컴포넌트에서만/);
+  it('자식 컴포넌트도 자기 hook으로 상태를 가진다', async () => {
+    let set;
+    const Child = () => { const [n, s] = useState(5); set = s; return h('p', null, n); };
+    const { container } = mount(() => h('div', null, h(Child)));
+    expect(container.innerHTML).toBe('<div><p>5</p></div>');
+    set(6);
+    await flush();
+    expect(container.innerHTML).toBe('<div><p>6</p></div>');
   });
 
   it('렌더 밖(이벤트 핸들러 등)에서 hook을 부르면 에러', () => {

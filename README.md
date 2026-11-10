@@ -93,7 +93,7 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 ### 함수는 매번 다시 실행되는데, 상태는 어떻게 유지할까?
 
-- 상태를 함수 안(지역 변수)이 아니라 함수 바깥, 즉 `FunctionComponent` 인스턴스의 `hooks` 배열에 둡니다.
+- 상태를 함수 안(지역 변수)이 아니라 함수 바깥의 **상자(인스턴스)**에 있는 `hooks` 배열에 둡니다. 상자는 컴포넌트를 화면에 쓸 때마다 하나씩 생기고, 루트의 `FunctionComponent`가 맨 위 상자입니다.
 - 렌더를 시작할 때 `hookIndex`를 0으로 되돌리고, hook을 부를 때마다 `hooks[hookIndex++]` 칸을 씁니다.
 - 매 렌더 같은 순서로 hook을 부르므로 같은 칸을 다시 만납니다. 그래서 조건문 안에서 hook을 쓰면 안 됩니다.
 
@@ -106,16 +106,18 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 1. **값 저장**: hooks 배열의 자기 칸을 고칩니다. 같은 값(`Object.is`)이면 여기서 끝납니다.
 2. **리렌더 예약**: 바로 그리지 않고 `queueMicrotask`로 미룹니다. 핸들러 안에서 여러 번 불러도 첫 번째만 예약하므로 **렌더는 한 번**입니다(batching).
+3. **다시 실행할 범위 표시**: 자기 상자에 "바뀜(dirty)"을 표시합니다. 예약된 렌더는 루트부터가 아니라 **바뀐 컴포넌트와 그 아래만** 다시 실행합니다. 루트까지 가는 길의 VNode만 복사해 루트부터 diff하므로, 바뀌지 않은 부분은 같은 객체라서 비교 없이 건너뜁니다.
 
 ### 컴포넌트 분리와 state 위치
 
 - 화면에서 한 가지 역할을 맡는 덩어리로 나눴습니다: `Header`, `TodoForm`, `Toolbar`, `TodoList`, `TodoItem`
-- state는 그것을 쓰는 컴포넌트들의 가장 가까운 공통 부모에 둡니다. 과제 제약에 따라 모든 state는 루트 `App`에 있고, 자식은 props만 받는 순수 함수입니다(Lifting State Up).
-- 자식에서 hook을 부르거나, 렌더 밖에서 hook을 부르거나, hook 개수·순서가 바뀌면 **에러를 던져** 이 규칙을 코드로 강제합니다.
+- state는 그것을 쓰는 컴포넌트들의 가장 가까운 공통 부모에 둡니다(Lifting State Up). 한 컴포넌트만 쓰는 상태는 그 컴포넌트가 자기 hook으로 가집니다. 과제 명세는 "루트에서만"을 가이드로 두지만, 작은 상태까지 루트로 올리면 props를 여러 단계 내려보내야 하고 값 하나에도 루트부터 다시 실행되어 컴포넌트마다 상태를 두도록 바꿨습니다. 지금 확인 페이지(할 일 앱)는 모든 state가 루트 `App`에 있습니다.
+- 자식 상자는 key로, key가 없으면 "그 부모 안에서 같은 컴포넌트를 몇 번째로 불렀나"로 지난번 상자와 짝짓습니다. 이번 렌더에서 부모가 부르지 않은 자식 상자는 화면에서 빠진 것으로 보고 effect cleanup을 부른 뒤 버립니다.
+- 렌더 밖에서 hook을 부르거나, hook 개수·순서가 바뀌면 **에러를 던져** 규칙을 코드로 강제합니다.
 
 ### 그 밖의 구현
 
-- `useEffect`: patch가 끝난 뒤 실행합니다. deps가 같으면 건너뛰고, 다시 실행하기 전과 `unmount()` 때 cleanup을 부릅니다.
+- `useEffect`: patch가 끝난 뒤 실행합니다. deps가 같으면 건너뛰고, 다시 실행하기 전과 컴포넌트가 빠질 때·`unmount()` 때 cleanup을 부릅니다. 함수가 끝난 순서로 줄 세우므로 자식 effect가 부모보다 먼저 실행됩니다.
 - `useMemo`: deps가 같으면 지난번 값을 그대로 돌려줍니다. 자식에게 넘기는 핸들러 묶음을 같은 객체로 유지하는 데도 씁니다.
 - 이벤트 위임: 컨테이너 하나에 이벤트 종류별로 리스너를 한 번만 답니다. 이벤트가 오면 클릭된 위치로 **지금** VNode를 찾아 그 핸들러를 부르므로 오래된 클로저 문제가 없습니다.
 - controlled input: 입력 후에는 `value` 속성이 화면에 영향을 주지 않으므로, patch가 `el.value` 프로퍼티도 함께 씁니다. 한글 조합(IME) 중에 값을 다시 쓰면 조합이 끊길 수 있어서, 값이 같으면 쓰지 않습니다.
@@ -136,9 +138,9 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 ### 2. memo + 같은 참조 건너뛰기
 
-- `memo(Component)`는 props가 얕은 비교로 같으면 함수를 부르지 않고 **지난번 VNode 객체**를 그대로 돌려줍니다.
+- `memo(Component)`는 props가 얕은 비교로 같고 **자기 상태도 바뀌지 않았으면** 함수를 부르지 않고 **지난번 VNode 객체**를 그대로 돌려줍니다. 건너뛴 자식도 부모가 부른 것이므로 상태는 남습니다.
 - diff 첫 줄은 `if (a === b) return;`입니다. 같은 객체면 하위 트리 비교를 통째로 건너뜁니다.
-- 자식이 순수 함수라는 과제 제약 덕분에 안전합니다. 같은 props면 같은 화면이 나옵니다.
+- 같은 props와 같은 자기 상태면 같은 화면이 나오므로 안전합니다.
 - 결과: 입력창에 타이핑하는 동안 할 일 항목은 함수 호출 0번, diff 0번입니다. patch는 input의 value 1개입니다. 첫 글자에서만 추가 버튼의 disabled 해제가 더해져 2개입니다.
 
 ### 3. Hooks 인스펙터
@@ -151,7 +153,7 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 | 이번 구현 | 실제 React |
 | --- | --- |
-| state는 루트 컴포넌트 하나에만 | 컴포넌트마다 자기 state (Fiber 노드마다 hooks 연결 리스트) |
+| 컴포넌트마다 상자(hooks 배열). 바뀐 컴포넌트의 VNode 위치는 트리를 따라가며 찾음(O(N)) | 컴포넌트마다 Fiber 노드(hooks 연결 리스트). Fiber가 부모·자식·형제를 포인터로 연결해 위치를 바로 앎 |
 | 렌더를 한 번에 끝까지 재귀 (중간에 멈출 수 없음) | Fiber로 작업을 쪼개 멈추고 이어서 함 |
 | batching = `queueMicrotask` 한 번 | React 18부터 출처와 상관없이 자동 batching, 우선순위 스케줄링 [^batch] |
 | `useEffect`를 patch 직후 동기로 실행 | 보통 화면을 그린 뒤 실행. 클릭 같은 입력의 결과면 그리기 전에 실행될 수 있음 [^effect] |
@@ -166,12 +168,13 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 
 ## 테스트
 
-`npm test` 결과: 12개 파일, 251개 테스트가 통과합니다.
+`npm test` 결과: 13개 파일, 264개 테스트가 통과합니다.
 
 | 파일 | 확인하는 것 |
 | --- | --- |
 | `vdom` · `diff` · `patch` · `history` · `integration` · `edge` · `fixtures` · `editor` · `log` | Phase 1 엔진과 검증 페이지 (198개) |
 | `component.test.js` | h, useState, batching, 이벤트 위임, useEffect, useMemo, memo, hook 규칙, unmount (29개) |
+| `instance.test.js` | 컴포넌트별 상태, 자식만 다시 실행, null·배열 출력, 상자 지우기와 cleanup, memo와 자기 상태, key 순서 변경, effect 순서 (13개) |
 | `keyed.test.js` | key 재조정의 patch 개수와 노드 재사용, 무작위 300회 fuzz, LIS (14개) |
 | `phase2.test.js` | Phase 2 확인 페이지(할 일 앱)의 추가·체크·삭제·필터·batching·뒤집기·저장 (10개) |
 
@@ -182,7 +185,7 @@ docs/            일정(SCHEDULE.md), 개념 정리(CONCEPTS.md)
 | DOM → VDOM 변환, diff 5가지 케이스, 바뀐 부분만 patch | `src/vdom.js`, `src/diff.js`, `src/patch.js` |
 | 실제 영역 · 테스트 영역 · Patch / 뒤로가기 / 앞으로가기 | `phase1/` |
 | 함수형 컴포넌트, `FunctionComponent`(hooks · mount · update) | `src/component.js` |
-| hook과 state는 루트에서만, 자식은 stateless | `phase2/App.js`, 위반 시 에러 (`component.test.js`) |
+| hook과 state는 루트에서만 (가이드) | 컴포넌트별 상태로 확장. 확인 페이지 `phase2/App.js`는 루트에만 state |
 | state 변경 시 VDOM → diff → patch 재사용 | `FunctionComponent.update()` |
 | `useState` · `useEffect` · `useMemo` | `src/component.js` |
 | Batching (선택) | `scheduleUpdate()` |
