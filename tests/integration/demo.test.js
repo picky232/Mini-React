@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { expect, test, vi } from 'vitest';
-import page from '../../index.html?raw';
+import page from '../../lab.html?raw';
 import { startDemo } from '../../src/app/main.js';
 
 function mountDemo() {

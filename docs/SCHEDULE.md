@@ -22,9 +22,9 @@ src/
   core/            # contracts(타입) · vnode(h) · security · diff(key·LIS 포함) · history
   dom/             # from-dom · render · patch(MOVE 포함) · events
   component/       # FunctionComponent · useState/useEffect/useMemo · child · batch
-  app/             # Phase 1 검증 페이지(main) · 할 일(todo) · patch-report · inspector
-index.html         # Phase 1 검증 페이지
-todo.html          # Phase 2 할 일 + Hooks 인스펙터
+  app/             # 점심 투표(vote) · DevTools 패널(devtools) · Phase 1 검증(main) · 할 일(todo) · patch-report · inspector
+index.html         # 메인 데모: 점심 투표 + DevTools 패널
+lab.html           # Phase 1 검증 페이지 + Phase 2 할 일·Hooks 인스펙터
 tests/unit · tests/integration   # Vitest + jsdom
 ```
 

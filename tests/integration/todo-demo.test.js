@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, expect, test } from 'vitest';
-import page from '../../todo.html?raw';
+import page from '../../lab.html?raw';
 import { startTodo } from '../../src/app/todo.js';
 
 let stop;
@@ -78,7 +78,7 @@ test('추가부터 마지막 삭제까지 실제 DOM 이벤트로 갱신하고 �
 
   stop();
   expect(container.firstChild).toBeNull();
-  expect(document.title).toBe('Mini React · 할 일');
+  expect(document.title).toBe('Mini React · 실습');
 });
 
 test('공백은 건너뛰고 같은 제목과 HTML처럼 보이는 제목은 각각의 텍스트 항목으로 추가한다', () => {
@@ -99,4 +99,12 @@ test('공백은 건너뛰고 같은 제목과 HTML처럼 보이는 제목은 각
   expect(toggle(0).getAttribute('aria-pressed')).toBe('false');
   toggle(0).click();
   expect(summary.textContent).toBe('전체 1개 중 1개 완료');
+});
+
+test('lab.html에 두 앱을 함께 띄워도 id가 겹치지 않아 라벨이 입력창을 가리킨다', () => {
+  const { container } = mountTodo();
+  const ids = Array.from(document.querySelectorAll('[id]'), (element) => element.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  const label = container.querySelector('label[for]');
+  expect(document.getElementById(label.htmlFor)).toBe(container.querySelector('input'));
 });

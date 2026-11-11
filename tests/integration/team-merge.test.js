@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, test, vi } from 'vitest';
-import page from '../../index.html?raw';
+import page from '../../lab.html?raw';
 import { startDemo } from '../../src/app/main.js';
 import { diff } from '../../src/core/diff.js';
 import { UnsafeInputError } from '../../src/core/security.js';
@@ -108,6 +108,19 @@ describe('Phase 1 페이지', () => {
 });
 
 describe('onCommit', () => {
+  test('diff와 patch에 걸린 시간을 0 이상의 숫자로 함께 알린다', () => {
+    const timings = [];
+    const root = new FunctionComponent(() => h('p', P, ['x']), {});
+    root.onCommit = (info) => timings.push(info.timings);
+    root.mount(document.createElement('div'));
+    root.update();
+    expect(timings).toHaveLength(2);
+    for (const { diff: diffMs, patch } of timings) {
+      expect(diffMs).toBeGreaterThanOrEqual(0);
+      expect(patch).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   test('Effect가 끝난 뒤 불리고, 여기서 난 오류는 커밋을 깨뜨리지 않는다', () => {
     const order = [];
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});

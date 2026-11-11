@@ -21,7 +21,7 @@ const show = (value) => {
 const P = { attrs: {}, events: {} };
 
 /** @param {{ hook: Record<string, unknown>, index: number }} props */
-function HookRow({ hook, index }) {
+export function HookRow({ hook, index }) {
   const value = hook.kind === 'effect' ? (hook.cleanup ? 'cleanup 있음' : '—') : show(hook.value);
   const deps = hook.kind === 'state' ? '' : show(hook.dependencies);
   return h('tr', P, [

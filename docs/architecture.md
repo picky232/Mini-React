@@ -23,9 +23,10 @@ src/
     main.js             # Stage 5: 두 영역·버튼 연결 (병합: Patch 로그·innerHTML 비교)
     patch-report.js     # 병합: Patch 설명, MutationObserver 집계
     todo.js · inspector.js # Phase 2 할 일 앱과 Hooks 인스펙터
-    style.css · todo.css
-index.html              # Stage 5: 실제 영역, 편집 영역, 세 버튼
-todo.html               # Phase 2 할 일 + Hooks 인스펙터
+    vote.js · devtools.js  # 메인 데모: 점심 투표 + DevTools 패널
+    style.css · todo.css · vote.css
+index.html              # 메인 데모: 점심 투표(왼쪽) + DevTools 패널(오른쪽)
+lab.html                # 실습: Phase 1 검증 페이지(실제·편집 영역, 세 버튼) + Phase 2 할 일·Hooks 인스펙터
 tests/
   contracts/            # JSDoc 정적 검사 fixture
   unit/                 # 순수 로직과 DOM 단위 테스트

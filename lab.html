@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mini React · 실습</title>
+    <link rel="stylesheet" href="./src/app/style.css">
+    <link rel="stylesheet" href="./src/app/todo.css">
+  </head>
+  <body>
+    <main class="lab">
+      <header class="intro">
+        <p class="eyebrow">실습 <span aria-hidden="true">/</span> <a href="./">메인 데모</a></p>
+        <h1>Mini React</h1>
+        <p>테스트 영역의 HTML이나 화면을 편집하고 <strong>Patch</strong>를 눌러 반영해 보세요.</p>
+      </header>
+
+      <div class="toolbar">
+        <div class="controls" aria-label="변경 및 이력">
+          <button id="patch" class="primary" type="button">Patch</button>
+          <button id="undo" type="button" disabled>뒤로가기</button>
+          <button id="redo" type="button" disabled>앞으로가기</button>
+        </div>
+        <button id="view-toggle" class="view-toggle" type="button" role="switch" aria-checked="false"
+          aria-controls="actual actual-code test test-code">
+          <span class="switch-track" aria-hidden="true"></span>
+          HTML 코드 보기
+        </button>
+        <p id="status" role="status" aria-atomic="true"></p>
+      </div>
+
+      <div class="panes">
+        <section class="pane" aria-labelledby="actual-title">
+          <header class="pane-heading">
+            <div>
+              <h2 id="actual-title">실제 영역</h2>
+              <p>마지막으로 반영한 화면</p>
+            </div>
+            <span class="badge">저장됨</span>
+          </header>
+          <div id="actual" class="surface"><article class="sample">
+            <p class="sample-label">미니 프로젝트</p>
+            <h3>오늘의 작업</h3>
+            <p>작은 변경부터 시작해 보세요.</p>
+            <ul>
+              <li><strong>VNode</strong>로 화면을 표현하기</li>
+              <li>Diff로 변경 목록 만들기</li>
+              <li>Patch로 DOM에 반영하기</li>
+            </ul>
+          </article></div>
+          <textarea id="actual-code" class="source-code" aria-label="실제 영역 HTML 코드" readonly hidden wrap="off" spellcheck="false"></textarea>
+        </section>
+
+        <section class="pane" aria-labelledby="test-title">
+          <header class="pane-heading">
+            <div>
+              <h2 id="test-title">테스트 영역</h2>
+              <p>내용을 클릭해 직접 편집</p>
+            </div>
+            <span class="badge draft">편집 가능</span>
+          </header>
+          <div id="test" class="surface editor" contenteditable="true" role="textbox"
+            aria-labelledby="test-title" aria-multiline="true" aria-describedby="edit-help" spellcheck="false"></div>
+          <textarea id="test-code" class="source-code editor" aria-label="테스트 영역 HTML 코드" aria-describedby="edit-help" hidden wrap="off" spellcheck="false"></textarea>
+        </section>
+      </div>
+
+      <p id="edit-help" class="hint">스위치를 켜고 테스트 영역의 HTML을 수정해 보세요. 끄면 반영 전 모습을 확인할 수 있어요.</p>
+
+      <section class="report" aria-labelledby="report-title">
+        <h2 id="report-title">마지막 반영 결과</h2>
+        <div class="report-stats">
+          <p class="report-stat"><span>바뀐 노드 수</span><strong id="patch-nodes">-</strong><small>innerHTML 전체 교체 <span id="inner-nodes">-</span></small></p>
+          <p class="report-stat"><span>MutationRecord 수</span><strong id="patch-records">-</strong><small>innerHTML 전체 교체 <span id="inner-records">-</span></small></p>
+        </div>
+        <ol id="patch-log" class="patch-log" aria-label="Patch 로그"></ol>
+      </section>
+      <section class="todo-page" aria-labelledby="todo-section-title" style="margin-top:56px">
+        <header class="intro">
+          <p class="eyebrow">PHASE 2</p>
+          <h2 id="todo-section-title">오늘의 할 일</h2>
+          <p>할 일을 추가하고, 마친 항목에 표시하세요.</p>
+        </header>
+        <div class="todo-layout">
+          <div id="todo-app"></div>
+          <section class="inspector" aria-labelledby="inspector-title">
+            <h2 id="inspector-title">Hooks 인스펙터</h2>
+            <div id="inspector"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { startDemo } from './src/app/main.js';
+      import { startTodo } from './src/app/todo.js';
+
+      startDemo({
+        actual: document.getElementById('actual'),
+        test: document.getElementById('test'),
+        patchButton: document.getElementById('patch'),
+        undoButton: document.getElementById('undo'),
+        redoButton: document.getElementById('redo'),
+        status: document.getElementById('status'),
+        sourceView: {
+          toggle: document.getElementById('view-toggle'),
+          actualCode: document.getElementById('actual-code'),
+          draftCode: document.getElementById('test-code'),
+        },
+        report: {
+          log: document.getElementById('patch-log'),
+          patchNodes: document.getElementById('patch-nodes'),
+          innerNodes: document.getElementById('inner-nodes'),
+          patchRecords: document.getElementById('patch-records'),
+          innerRecords: document.getElementById('inner-records'),
+        },
+      });
+      startTodo(document.getElementById('todo-app'), document.getElementById('inspector'));
+    </script>
+  </body>
+</html>

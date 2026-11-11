@@ -345,9 +345,12 @@ export class FunctionComponent {
 
   #memoHits = 0;
 
+  /** 마지막 커밋의 diff·patch 소요 시간(ms). onCommit으로 개발 도구 패널에 알린다. */
+  #lastTimings = { diff: 0, patch: 0 };
+
   /**
    * DOM 반영과 그 커밋의 Effect가 끝날 때마다 불린다. Hooks 인스펙터 같은 개발 도구가 쓰며, 여기서 난 오류는 콘솔에만 남긴다.
-   * @type {((info: { patches: import('../core/contracts.js').PatchList, hooks: readonly HookSlot[], renders: number, memoHits: number }) => void) | null}
+   * @type {((info: { patches: import('../core/contracts.js').PatchList, hooks: readonly HookSlot[], renders: number, memoHits: number, timings: { diff: number, patch: number } }) => void) | null}
    */
   onCommit = null;
 
@@ -545,7 +548,7 @@ export class FunctionComponent {
           this.#queuedEffectUpdates = null;
           // Effect까지 끝난 hooks를 알린다. 개발 도구의 오류가 이미 끝난 커밋을 깨뜨리지 않게 막는다.
           try {
-            this.onCommit?.({ patches: this.#lastPatches, hooks: this.hooks, renders: this.#renders, memoHits: this.#memoHits });
+            this.onCommit?.({ patches: this.#lastPatches, hooks: this.hooks, renders: this.#renders, memoHits: this.#memoHits, timings: this.#lastTimings });
           } catch (error) {
             console.error(error);
           }
@@ -577,9 +580,12 @@ export class FunctionComponent {
     try {
       const { vnode, pendingEffects, pendingMemos, nextMemoCache, memoHits } = this.#renderVNode();
       // 첫 마운트는 null과 비교해 루트를 삽입하고, 갱신은 마지막으로 적용한 트리와 비교한다.
+      const startedAt = performance.now();
       const patches = diff(previous, vnode);
+      const diffedAt = performance.now();
       applyingPatches = true;
       applyPatches(container, patches);
+      this.#lastTimings = { diff: diffedAt - startedAt, patch: performance.now() - diffedAt };
       this.#lastPatches = patches;
       // 커밋에 성공한 렌더의 기록만 다음 비교 기준으로 삼는다. 실패하면 이전 기록장을 그대로 쓴다.
       this.#memoCache = nextMemoCache;

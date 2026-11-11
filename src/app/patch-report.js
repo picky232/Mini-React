@@ -47,7 +47,7 @@ export function describePatch(patch) {
 }
 
 /** @param {Node} node @returns {number} */
-const countNodes = (node) => [...node.childNodes].reduce((sum, child) => sum + countNodes(child), 1);
+export const countNodes = (node) => [...node.childNodes].reduce((sum, child) => sum + countNodes(child), 1);
 
 /**
  * 바뀐 노드 수. 속성·텍스트 변경은 1개, 추가·삭제는 하위 노드까지 센다.
