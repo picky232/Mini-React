@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>README 흐름도</title>
+<style>
+  :root {
+    --ink: #1f2937; --sub: #4b5563; --line: #64748b;
+    --blue: #e8f1ff; --blue-b: #3b82f6;
+    --purple: #f1ecff; --purple-b: #7c5cff;
+    --green: #e7f7ee; --green-b: #16a34a;
+    --red: #fdecec; --red-b: #e5484d;
+    --amber: #fff5dc; --amber-b: #d99a00;
+    --gray: #f3f4f6; --gray-b: #9ca3af;
+  }
+  body { margin: 0; background: #fff; font-family: "Apple SD Gothic Neo", "Pretendard", system-ui, sans-serif; color: var(--ink); }
+  .fig { display: block; width: fit-content; background: #fff; padding: 24px; margin-bottom: 40px; }
+  svg text { font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="fig" id="flow"></div>
+<div class="fig" id="security"></div>
+<div class="fig" id="key"></div>
+<div class="fig" id="recovery"></div>
+<div class="fig" id="collab"></div>
+
+<script>
+const C = {
+  blue: ['--blue', '--blue-b'], purple: ['--purple', '--purple-b'], green: ['--green', '--green-b'],
+  red: ['--red', '--red-b'], amber: ['--amber', '--amber-b'], gray: ['--gray', '--gray-b'],
+};
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+function diagram(id, { width, height, nodes, edges = [], groups = [], notes = [] }) {
+  const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+  const side = (n, s) => ({
+    l: [n.x, n.y + n.h / 2], r: [n.x + n.w, n.y + n.h / 2],
+    t: [n.x + n.w / 2, n.y], b: [n.x + n.w / 2, n.y + n.h],
+  })[s];
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>${Object.keys(C).concat('line').map((k) => `<marker id="a-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${k === 'line' ? css('--line') : css(C[k][1])}"/></marker>`).join('')}</defs>`;
+
+  for (const g of groups) {
+    const [fill, stroke] = C[g.color].map(css);
+    out += `<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="20" fill="${fill}" fill-opacity="0.45" stroke="${stroke}" stroke-width="2.5" stroke-dasharray="10 8"/>
+      <text x="${g.x + g.w / 2}" y="${g.y + 38}" text-anchor="middle" font-size="27" font-weight="800" fill="${stroke}">${esc(g.label)}</text>`;
+  }
+
+  for (const e of edges) {
+    const a = byId[e.from], b = byId[e.to];
+    const [x1, y1] = side(a, e.fs ?? 'r'), [x2, y2] = side(b, e.ts ?? 'l');
+    let d;
+    const vertical = (s) => s === 't' || s === 'b';
+    if (e.straight || x1 === x2 || y1 === y2) d = `M${x1} ${y1}L${x2} ${y2}`;
+    else if (vertical(e.fs) && vertical(e.ts)) { const my = e.my ?? (y1 + y2) / 2; d = `M${x1} ${y1}L${x1} ${my}L${x2} ${my}L${x2} ${y2}`; }
+    else if (vertical(e.fs)) d = `M${x1} ${y1}L${x1} ${y2}L${x2} ${y2}`;
+    else { const mx = e.mx ?? (x1 + x2) / 2; d = `M${x1} ${y1}L${mx} ${y1}L${mx} ${y2}L${x2} ${y2}`; }
+    const color = e.color ? css(C[e.color][1]) : css('--line');
+    out += `<path d="${d}" fill="none" stroke="${color}" stroke-width="3.5" ${e.dashed ? 'stroke-dasharray="9 7"' : ''} marker-end="url(#a-${e.color ?? 'line'})"/>`;
+    if (e.label) {
+      const [lx, ly] = e.lp;
+      const w = [...e.label].reduce((sum, ch) => sum + (ch.charCodeAt(0) > 255 ? 26 : 15), 32);
+      out += `<rect x="${lx - w / 2}" y="${ly - 22}" width="${w}" height="44" rx="22" fill="#fff" stroke="${color}" stroke-width="2.5"/>
+        <text x="${lx}" y="${ly + 9}" text-anchor="middle" font-size="25" font-weight="700" fill="${color}">${esc(e.label)}</text>`;
+    }
+  }
+
+  for (const n of nodes) {
+    if (n.hidden) continue;
+    const [fill, stroke] = C[n.color ?? 'gray'].map(css);
+    const lines = n.text.split('\n');
+    const big = n.big ?? 34, small = n.small ?? 25;
+    const total = big + (lines.length > 1 ? small + 14 + (lines.length - 2) * (small + 10) : 0);
+    let y = n.y + n.h / 2 - total / 2 + big * 0.8;
+    out += `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${n.r ?? 16}" fill="${fill}" stroke="${stroke}" stroke-width="${n.strong ? 4 : 2.5}"/>`;
+    lines.forEach((line, i) => {
+      out += `<text x="${n.x + n.w / 2}" y="${y}" text-anchor="middle" font-size="${i === 0 ? big : small}" font-weight="${i === 0 ? 800 : 500}" fill="${i === 0 ? css('--ink') : css('--sub')}">${esc(line)}</text>`;
+      y += i === 0 ? small + 14 : small + 10;
+    });
+  }
+
+  for (const t of notes) {
+    out += `<text x="${t.x}" y="${t.y}" text-anchor="${t.anchor ?? 'middle'}" font-size="${t.size ?? 28}" font-weight="${t.weight ?? 700}" fill="${t.color ? css(C[t.color][1]) : css('--sub')}">${esc(t.text)}</text>`;
+  }
+  document.getElementById(id).innerHTML = out + '</svg>';
+}
+
+// 1. 동작 흐름
+diagram('flow', {
+  width: 1120, height: 720,
+  groups: [{ x: 20, y: 250, w: 1080, h: 230, color: 'green', label: '두 Phase가 같은 코드를 씀' }],
+  nodes: [
+    { id: 'p1', x: 20, y: 20, w: 350, h: 170, color: 'blue', text: 'Phase 1\n테스트 영역 수정\n→ Patch 버튼' },
+    { id: 'p2', x: 450, y: 20, w: 650, h: 170, color: 'purple', text: 'Phase 2\n클릭 → setState → 루트 함수 재실행' },
+    { id: 'v', x: 50, y: 310, w: 290, h: 140, color: 'gray', text: '새 VDOM\n화면을 JS 객체로' },
+    { id: 'd', x: 415, y: 310, w: 290, h: 140, color: 'gray', text: 'diff\n이전 VDOM과 비교' },
+    { id: 'p', x: 780, y: 310, w: 290, h: 140, color: 'green', strong: true, text: 'patch\n바뀐 DOM만 수정' },
+    { id: 'e', x: 780, y: 560, w: 290, h: 130, color: 'purple', text: 'useEffect\nPhase 2만' },
+  ],
+  edges: [
+    { from: 'p1', to: 'v', fs: 'b', ts: 't', my: 230 }, { from: 'p2', to: 'v', fs: 'b', ts: 't', my: 230 },
+    { from: 'v', to: 'd' }, { from: 'd', to: 'p' }, { from: 'p', to: 'e', fs: 'b', ts: 't', dashed: true },
+  ],
+});
+
+// 2. 보안
+diagram('security', {
+  width: 1120, height: 720,
+  nodes: [
+    { id: 'a', x: 20, y: 20, w: 430, h: 130, color: 'blue', text: 'Phase 1\n실제 DOM 읽기' },
+    { id: 'b', x: 620, y: 20, w: 480, h: 130, color: 'purple', text: 'Phase 2\n컴포넌트 렌더' },
+    { id: 'h', x: 20, y: 250, w: 430, h: 170, color: 'amber', strong: true, big: 42, text: 'h()\n모든 VNode의 입구\n여기서 태그·속성 검사' },
+    { id: 'x', x: 620, y: 250, w: 480, h: 170, color: 'red', strong: true, text: '막힘\n막은 이유를 보여 주고\n화면은 그대로' },
+    { id: 'd', x: 105, y: 540, w: 260, h: 150, color: 'gray', text: 'diff' },
+    { id: 'p', x: 435, y: 540, w: 360, h: 150, color: 'gray', text: 'patch\n속성 한 번 더 검사' },
+    { id: 'dom', x: 865, y: 540, w: 235, h: 150, color: 'green', text: '실제 DOM' },
+  ],
+  edges: [
+    { from: 'a', to: 'h', fs: 'b', ts: 't', my: 200 }, { from: 'b', to: 'h', fs: 'b', ts: 't', my: 200 },
+    { from: 'h', to: 'x', color: 'red', label: '위험 입력', lp: [535, 335] },
+    { from: 'h', to: 'd', fs: 'b', ts: 't' }, { from: 'd', to: 'p' }, { from: 'p', to: 'dom' },
+  ],
+});
+
+// 3. key: 예시 + 4단계
+diagram('key', {
+  width: 1120, height: 560,
+  notes: [
+    { x: 20, y: 82, text: '이전', anchor: 'start' },
+    { x: 20, y: 302, text: '이후', anchor: 'start' },
+    { x: 20, y: 430, text: 'A·B·C는 순서가 이미 맞음 (LIS)', anchor: 'start', color: 'green' },
+    { x: 20, y: 480, text: '→ 그대로 두고 D만 MOVE 1번', anchor: 'start', color: 'amber', size: 32, weight: 800 },
+  ],
+  nodes: [
+    ...['A', 'B', 'C', 'D'].map((k, i) => ({ id: 'o' + k, x: 100 + i * 105, y: 40, w: 85, h: 80, r: 14, big: 38, color: k === 'D' ? 'amber' : 'green', text: k })),
+    ...['D', 'A', 'B', 'C'].map((k, i) => ({ id: 'n' + k, x: 100 + i * 105, y: 260, w: 85, h: 80, r: 14, big: 38, color: k === 'D' ? 'amber' : 'green', text: k })),
+    { id: 's1', x: 560, y: 20, w: 540, h: 110, color: 'gray', big: 30, text: '① 같은 key끼리 내용 비교' },
+    { id: 's2', x: 560, y: 150, w: 540, h: 110, color: 'red', big: 30, text: '② 사라진 key 삭제\n뒤에서부터 지워 인덱스 유지' },
+    { id: 's3', x: 560, y: 280, w: 540, h: 110, color: 'amber', strong: true, big: 30, text: '③ LIS는 두고 나머지만 MOVE\n이동 횟수가 가장 적음' },
+    { id: 's4', x: 560, y: 410, w: 540, h: 110, color: 'blue', big: 30, text: '④ 새 key INSERT' },
+  ],
+  edges: [
+    ...['A', 'B', 'C'].map((k) => ({ from: 'o' + k, to: 'n' + k, fs: 'b', ts: 't', straight: true, color: 'green' })),
+    { from: 'oD', to: 'nD', fs: 'b', ts: 't', straight: true, color: 'amber' },
+  ],
+});
+
+// 4. 복구
+diagram('recovery', {
+  width: 1120, height: 700,
+  nodes: [
+    { id: 'i', x: 20, y: 30, w: 200, h: 130, color: 'gray', text: '입력' },
+    { id: 'c', x: 300, y: 30, w: 240, h: 130, color: 'amber', text: '검사\n엔진 입구' },
+    { id: 'no', x: 720, y: 30, w: 380, h: 130, color: 'red', strong: true, text: '거절\n화면·state 그대로' },
+    { id: 'w', x: 150, y: 270, w: 540, h: 130, color: 'blue', text: 'render → diff → patch' },
+    { id: 'ok', x: 20, y: 520, w: 460, h: 150, color: 'green', text: '새 화면 저장\nhistory·memo 갱신' },
+    { id: 'rb', x: 560, y: 500, w: 540, h: 190, color: 'amber', strong: true, text: '마지막 성공 화면으로\nDOM 다시 그림\nstate 역순으로 되돌림' },
+  ],
+  edges: [
+    { from: 'i', to: 'c' },
+    { from: 'c', to: 'no', color: 'red', label: '잘못된 값', lp: [630, 95] },
+    { from: 'c', to: 'w', fs: 'b', ts: 't', label: '통과', lp: [420, 215] },
+    { from: 'w', to: 'ok', fs: 'b', ts: 't', my: 455, color: 'green', label: '성공', lp: [330, 455] },
+    { from: 'w', to: 'rb', fs: 'b', ts: 't', my: 455, color: 'amber', label: '중간 실패', lp: [620, 455] },
+  ],
+});
+
+// 5. 협업
+diagram('collab', {
+  width: 1120, height: 780,
+  notes: [{ x: 560, y: 36, text: '① 각자 Phase 1·2를 처음부터 구현' }],
+  groups: [{ x: 20, y: 470, w: 1080, h: 290, color: 'green', label: '③ 장점만 합친 엔진' }],
+  nodes: [
+    { id: 's', x: 20, y: 60, w: 520, h: 120, color: 'blue', text: 'sohee 구현' },
+    { id: 'j', x: 580, y: 60, w: 520, h: 120, color: 'purple', text: 'jiho 구현' },
+    { id: 'e', x: 210, y: 270, w: 700, h: 120, color: 'gray', text: '② AI와 함께 비교\n같은 평가 기준으로 항목별' },
+    { id: 'g', x: 20, y: 470, w: 1080, h: 1, hidden: true, text: '' },
+    { id: 'm1', x: 50, y: 530, w: 500, h: 200, color: 'blue', text: '뼈대: sohee\n계층 · 타입 계약\n실패 복구' },
+    { id: 'm2', x: 570, y: 530, w: 500, h: 200, color: 'purple', text: '더한 것: jiho\nkey(LIS) · 보안\nmemo · 인스펙터' },
+  ],
+  edges: [
+    { from: 's', to: 'e', fs: 'b', ts: 't', my: 225 }, { from: 'j', to: 'e', fs: 'b', ts: 't', my: 225 },
+    { from: 'e', to: 'g', fs: 'b', ts: 't' },
+  ],
+});
+</script>
+</body>
+</html>
