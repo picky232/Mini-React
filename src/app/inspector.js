@@ -5,7 +5,7 @@ import { describePatch } from './patch-report.js';
 /** @typedef {import('../core/contracts.js').PatchList} PatchList */
 /** @typedef {{ patches: PatchList, hooks: readonly { kind: string }[], renders: number, memoHits: number }} CommitInfo */
 
-const HOOK_NAME = /** @type {Record<string, string>} */ ({ state: 'useState', memo: 'useMemo', effect: 'useEffect' });
+export const HOOK_NAME = /** @type {Record<string, string>} */ ({ state: 'useState', memo: 'useMemo', effect: 'useEffect' });
 /** @param {string} text */
 const short = (text, max = 60) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 // 함수는 JSON에 나오지 않으므로 ƒ로 표시한다.
@@ -21,7 +21,7 @@ const show = (value) => {
 const P = { attrs: {}, events: {} };
 
 /** @param {{ hook: Record<string, unknown>, index: number }} props */
-export function HookRow({ hook, index }) {
+function HookRow({ hook, index }) {
   const value = hook.kind === 'effect' ? (hook.cleanup ? 'cleanup 있음' : '—') : show(hook.value);
   const deps = hook.kind === 'state' ? '' : show(hook.dependencies);
   return h('tr', P, [

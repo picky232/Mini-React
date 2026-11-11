@@ -1,6 +1,6 @@
 import { FunctionComponent, child } from '../component/function-component.js';
 import { h } from '../core/vnode.js';
-import { HookRow } from './inspector.js';
+import { HOOK_NAME } from './inspector.js';
 import { countNodes, describePatch } from './patch-report.js';
 
 /** @typedef {import('../core/contracts.js').PatchList} PatchList */
@@ -22,6 +22,54 @@ const MAX_FLASHES = 20;
 // 브라우저는 보안 때문에 performance.now()를 0.1ms 단위로 자른다. 그보다 짧으면 0으로 찍힌다.
 const ms = (/** @type {number} */ value) => (value < 0.1 ? '< 0.1ms' : `${value.toFixed(1)}ms`);
 const el = (/** @type {string} */ tag, /** @type {string} */ className, /** @type {any[]} */ children) => h(tag, { attrs: { class: className }, events: {} }, children);
+
+const isRecord = (/** @type {unknown} */ value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+/**
+ * 값을 한 줄 글자로 바꾼다. 함수는 ƒ로 쓰고, 순환 참조에 갇히지 않게 깊이를 제한한다.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function inline(value, depth = 0) {
+  if (depth > 4) return '…';
+  if (Array.isArray(value)) return `[${value.map((item) => inline(item, depth + 1)).join(', ')}]`;
+  if (isRecord(value)) {
+    const entries = Object.entries(/** @type {object} */ (value)).map(([key, item]) => `${key}: ${inline(item, depth + 1)}`);
+    return entries.length === 0 ? '{}' : `{ ${entries.join(', ')} }`;
+  }
+  if (typeof value === 'function') return 'ƒ';
+  if (typeof value === 'string') return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Hook 값을 줄 목록으로 바꾼다. 자르지 않고, 배열은 항목마다·객체는 속성마다 한 줄씩 쓴다.
+ * 배열 안의 배열(useMemo deps의 목록 등)은 들여써서 그 항목들을 다시 한 줄씩 쓴다.
+ * @param {unknown} value
+ * @returns {string[]}
+ */
+export function toLines(value, indent = '') {
+  if (indent.length > 8) return [`${indent}${inline(value, 5)}`]; // 너무 깊거나 자기 자신을 담은 배열에서 멈춘다
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [`${indent}[]`];
+    return value.flatMap((item) => (Array.isArray(item) ? toLines(item, `${indent}  `) : [`${indent}${inline(item)}`]));
+  }
+  const entries = isRecord(value) ? Object.entries(/** @type {object} */ (value)) : [];
+  if (entries.length > 0) return entries.map(([key, item]) => `${indent}${key}: ${inline(item)}`);
+  return [`${indent}${inline(value)}`];
+}
+
+/** @param {{ hook: Record<string, unknown>, index: number }} props */
+function HookItem({ hook, index }) {
+  const kind = String(hook.kind);
+  const value = kind === 'effect' ? [hook.cleanup ? 'cleanup 있음' : '—'] : toLines(hook.value);
+  const lines = (/** @type {string[]} */ rows) => el('div', 'dt-lines', rows.map((row) => h('div', P, [row])));
+  return el('li', 'dt-hook', [
+    el('div', 'dt-hook-head', [el('span', 'dt-hook-index', [`#${index}`]), el('em', 'tag', [HOOK_NAME[kind] ?? kind])]),
+    lines(value),
+    kind === 'state' ? null : el('div', 'dt-deps', [el('small', '', ['deps']), lines(toLines(hook.dependencies))]),
+  ]);
+}
 
 /** @param {{ label: string, value: string, good?: boolean }} props */
 function Metric({ label, value, good }) {
@@ -59,9 +107,7 @@ function Panel({ info }) {
     el('section', 'dt-sec', [el('h3', '', [`PATCHES · ${patches.length}건`]), el('ol', 'dt-patches', lines)]),
     el('section', 'dt-sec', [
       el('h3', '', ['HOOKS · VoteApp']),
-      h('table', { attrs: { class: 'hooks' }, events: {} }, [
-        h('tbody', P, info.hooks.map((hook, index) => child(HookRow, { hook, index }))),
-      ]),
+      el('ol', 'dt-hooks', info.hooks.map((hook, index) => child(HookItem, { hook, index }))),
     ]),
   ]);
 }

@@ -3,7 +3,7 @@
 import { afterEach, expect, test } from 'vitest';
 import page from '../../index.html?raw';
 import { startVote } from '../../src/app/vote.js';
-import { changedNodes } from '../../src/app/devtools.js';
+import { changedNodes, toLines } from '../../src/app/devtools.js';
 
 let stop;
 afterEach(() => {
@@ -125,4 +125,31 @@ test('바뀐 노드 수는 MOVE로 옮긴 줄을 새로 만든 것처럼 하위 
   const records = observer.takeRecords();
   observer.disconnect();
   expect(changedNodes(records)).toBe(2); // 옮긴 li 1개 + 텍스트 1개
+});
+
+test('Hooks 값은 자르지 않고 배열은 항목마다, 객체는 속성마다 한 줄로 보여 준다', () => {
+  expect(toLines([{ id: 1, name: '짜장면' }, { id: 2, name: '김치찌개' }])).toEqual(['{ id: 1, name: "짜장면" }', '{ id: 2, name: "김치찌개" }']);
+  expect(toLines({ text: '추가했어요.', error: false })).toEqual(['text: "추가했어요."', 'error: false']);
+  expect(toLines([[1, 2], () => {}])).toEqual(['  1', '  2', 'ƒ']);
+  expect(toLines([])).toEqual(['[]']);
+  expect(toLines(null)).toEqual(['null']);
+  const cycle = {};
+  cycle.self = cycle;
+  expect(toLines(cycle)[0]).toContain('…');
+  const selfArray = [];
+  selfArray.push(selfArray);
+  expect(toLines(selfArray).at(-1)).toContain('…');
+  expect(toLines({})).toEqual(['{}']);
+});
+
+test('패널의 Hooks 목록에 상태 값이 잘리지 않고 메뉴마다 한 줄씩 나온다', () => {
+  const { panel } = mountVote();
+  const firstHook = panel.querySelector('.dt-hook .dt-lines');
+  expect(Array.from(firstHook.children, (line) => line.textContent)).toEqual([
+    '{ id: 1, name: "짜장면", votes: 12 }',
+    '{ id: 2, name: "김치찌개", votes: 9 }',
+    '{ id: 3, name: "돈까스", votes: 7 }',
+    '{ id: 4, name: "마라탕", votes: 5 }',
+    '{ id: 5, name: "쌀국수", votes: 3 }',
+  ]);
 });
