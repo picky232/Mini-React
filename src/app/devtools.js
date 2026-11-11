@@ -18,7 +18,6 @@ import { countNodes, describePatch } from './patch-report.js';
 
 const P = { attrs: {}, events: {} };
 const MAX_PATCH_LINES = 12;
-const MAX_FLASHES = 20;
 // 브라우저는 보안 때문에 performance.now()를 0.1ms 단위로 자른다. 그보다 짧으면 0으로 찍힌다.
 const ms = (/** @type {number} */ value) => (value < 0.1 ? '< 0.1ms' : `${value.toFixed(1)}ms`);
 const el = (/** @type {string} */ tag, /** @type {string} */ className, /** @type {any[]} */ children) => h(tag, { attrs: { class: className }, events: {} }, children);
@@ -82,7 +81,7 @@ function Panel({ info }) {
   const { action, patches } = info;
   const lines = patches.slice(0, MAX_PATCH_LINES).map((patch) => {
     const { type, target, detail } = describePatch(patch);
-    return el('li', 'dt-patch', [el('em', `tag tag-${type}`, [type]), el('code', '', [target]), ` ${detail}`]);
+    return el('li', `dt-patch patch-${type}`, [el('em', 'tag', [type]), el('code', '', [target]), ` ${detail}`]);
   });
   if (patches.length > MAX_PATCH_LINES) lines.push(el('li', 'dt-more', [`외 ${patches.length - MAX_PATCH_LINES}건`]));
   if (patches.length === 0) lines.push(el('li', 'dt-more', ['바뀐 부분이 없어 DOM을 건드리지 않았어요.']));
@@ -132,33 +131,63 @@ export function changedNodes(records) {
   return count;
 }
 
+const SLIDE = { duration: 450, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' };
+const GLOW = { duration: 1100, easing: 'ease-out' };
+
 /**
- * patch가 건드린 메뉴 줄 위에 잠깐 빛나는 상자를 띄운다. 숫자·이름 같은 작은 조각 대신 줄 블록 전체를 강조한다.
- * 상자는 앱 밖 레이어에 두어 앱 DOM과 다음 측정을 건드리지 않는다.
- * @param {readonly MutationRecord[]} records
- * @param {HTMLElement} layer
+ * 줄마다 목록 안에서의 위치와 순서를 기억한다. offsetTop은 페이지 스크롤과 진행 중인 transform에 영향받지 않고,
+ * 목록의 offsetTop을 빼서 글꼴 로딩이나 알림 문구처럼 목록 바깥에서 생긴 밀림은 무시한다.
+ * @param {Element} root
+ * @returns {Map<Element, { top: number, index: number }>}
  */
-function flash(records, layer) {
-  /** @type {Set<Element>} */
-  const targets = new Set();
+const rowTops = (root) => new Map(Array.from(root.querySelectorAll('.menu-row'), (row, index) => {
+  const item = /** @type {HTMLElement} */ (row);
+  return [row, { top: item.offsetTop - (/** @type {HTMLElement | null} */ (item.parentElement)?.offsetTop ?? 0), index }];
+}));
+
+/**
+ * patch 뒤의 줄을 움직여 보여 준다. 둘 다 Web Animations API(element.animate)로 해서 style 속성을 바꾸지 않는다.
+ * 그래서 MutationObserver에 기록이 남지 않고, 다음 커밋의 '바뀐 노드' 수에 섞이지 않는다.
+ * 1. 미끄러지기(FLIP): 지난 커밋 때 위치(First)와 지금 위치(Last)의 차이만큼 되돌려 놓고(Invert) 제자리로 움직인다(Play).
+ *    MOVE로 옮긴 줄, 삭제로 당겨진 줄이 순간이동하지 않고 미끄러진다.
+ * 2. 강조: patch가 건드린 줄 블록 전체를 잠깐 대표 색으로 빛낸다.
+ * @param {readonly MutationRecord[]} records
+ * @param {Element} root
+ * @param {Map<Element, { top: number, index: number }>} previousTops
+ */
+function animateRows(records, root, previousTops) {
   const rowOf = (/** @type {Node} */ node) => (node.nodeType === 1 ? /** @type {Element} */ (node) : node.parentElement)?.closest('.menu-row');
+  /** @type {Set<Element>} */
+  const touched = new Set();
   for (const record of records) {
     // 삭제는 줄이 이미 사라졌으므로 강조할 곳이 없다. 추가·이동은 들어온 줄, 텍스트·속성 변경은 그 줄을 강조한다.
     const nodes = record.type === 'childList' ? [...record.addedNodes] : [record.target];
     for (const node of nodes) {
       const row = rowOf(node);
-      if (row) targets.add(row);
+      if (row) touched.add(row);
     }
   }
-  const base = layer.getBoundingClientRect();
-  for (const target of [...targets].slice(0, MAX_FLASHES)) {
-    const rect = target.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) continue;
-    const box = layer.ownerDocument.createElement('div');
-    box.className = 'flash';
-    box.style.cssText = `left:${rect.left - base.left}px;top:${rect.top - base.top}px;width:${rect.width}px;height:${rect.height}px`;
-    box.addEventListener('animationend', () => box.remove());
-    layer.append(box);
+  const view = root.ownerDocument.defaultView;
+  const reduceMotion = view?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  // 빛나는 색은 CSS의 대표 색 변수에서 읽어 디자인과 어긋나지 않게 한다.
+  const token = (/** @type {string} */ name) => (view ? view.getComputedStyle(root).getPropertyValue(name).trim() : '');
+  const glow = [
+    { backgroundColor: token('--brand-soft'), boxShadow: `0 0 0 2px ${token('--brand')}` },
+    { backgroundColor: token('--card'), boxShadow: `0 0 0 2px transparent` },
+  ];
+  for (const [row, { top, index }] of rowTops(root)) {
+    // shortcut: animate가 없는 환경(jsdom 등)에서는 움직이지 않는다.
+    if (typeof row.animate !== 'function') return;
+    const before = previousTops.get(row);
+    // 순서가 바뀐 줄만 미끄러진다(MOVE로 옮겨졌거나, 위 줄이 삭제돼 당겨진 줄).
+    if (!reduceMotion && before !== undefined && before.index !== index && before.top !== top) {
+      // 위로 올라가는 줄이 내려가는 줄 위에 보이도록 겹침 순서를 올린다.
+      const z = before.top > top ? '1' : '0';
+      row.animate([{ transform: `translateY(${before.top - top}px)`, zIndex: z }, { transform: 'translateY(0)', zIndex: z }], SLIDE);
+    }
+    if (touched.has(row)) {
+      row.animate(glow, reduceMotion ? { ...GLOW, duration: 200 } : GLOW);
+    }
   }
 }
 
@@ -176,10 +205,11 @@ export function attachDevtools(target, appContainer, panelContainer) {
   let pending = null;
   let renders = 0;
 
-  const layer = document.createElement('div');
-  layer.className = 'flash-layer';
-  layer.setAttribute('aria-hidden', 'true');
-  appContainer.after(layer);
+  /** @type {Map<Element, { top: number, index: number }>} */
+  let tops = new Map();
+  // 창 크기가 바뀌면 줄 위치도 바뀐다. 다음 커밋에서 그 차이를 이동으로 착각하지 않게 다시 잰다.
+  const remeasure = () => { tops = rowTops(appContainer); };
+  document.defaultView?.addEventListener('resize', remeasure);
 
   const observer = new MutationObserver(() => {});
   observer.observe(appContainer, { childList: true, attributes: true, characterData: true, subtree: true });
@@ -202,8 +232,9 @@ export function attachDevtools(target, appContainer, panelContainer) {
       action: pending && { label: pending.label, setStates: pending.setStates, renders: info.renders - pending.from },
     };
     panel.update();
-    // 첫 렌더는 전부 새로 만든 것이라 화면 전체가 빛나 의미가 없다.
-    if (info.renders > 1) flash(records, layer);
+    // 첫 렌더는 전부 새로 만든 것이라 움직이거나 빛낼 대상이 없다.
+    if (info.renders > 1) animateRows(records, appContainer, tops);
+    remeasure();
   };
 
   return {
@@ -214,7 +245,7 @@ export function attachDevtools(target, appContainer, panelContainer) {
     detach() {
       target.onCommit = null;
       observer.disconnect();
-      layer.remove();
+      document.defaultView?.removeEventListener('resize', remeasure);
       panel.unmount();
     },
   };

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import page from '../../index.html?raw';
 import { startVote } from '../../src/app/vote.js';
 import { changedNodes, toLines } from '../../src/app/devtools.js';
@@ -105,13 +105,15 @@ test('모두 지우면 안내를 보여 주고, 초기화하면 샘플로 돌아
   expect(names()).toHaveLength(5);
 });
 
-test('해제하면 앱·패널·강조 레이어를 지우고 제목을 되돌린다', () => {
+test('해제하면 앱·패널을 지우고 제목을 되돌린다', () => {
   const { app, panel } = mountVote();
+  const removeListener = vi.spyOn(window, 'removeEventListener');
   stop();
+  expect(removeListener).toHaveBeenCalledWith('resize', expect.any(Function));
+  removeListener.mockRestore();
   stop = undefined;
   expect(app.childNodes).toHaveLength(0);
   expect(panel.childNodes).toHaveLength(0);
-  expect(document.querySelector('.flash-layer')).toBeNull();
   expect(document.title).toBe('Mini React · 점심 투표');
 });
 
@@ -152,4 +154,38 @@ test('패널의 Hooks 목록에 상태 값이 잘리지 않고 메뉴마다 한 
     '{ id: 4, name: "마라탕", votes: 5 }',
     '{ id: 5, name: "쌀국수", votes: 3 }',
   ]);
+});
+
+test('순위가 바뀌면 옮긴 줄이 예전 자리에서 미끄러지고, 바뀐 줄은 빛난다', () => {
+  // jsdom에는 레이아웃과 animate가 없어서, 목록 안 순서로 위치를 흉내 내고 animate 호출을 기록한다.
+  const offsetTop = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function () {
+    return this.classList.contains('menu-row') ? [...this.parentNode.children].indexOf(this) * 60 : 0;
+  });
+  const calls = [];
+  HTMLElement.prototype.animate = function (keyframes) { calls.push({ row: this, keyframes }); };
+  try {
+    const { byLabel, row } = mountVote();
+    for (let i = 0; i < 3; i += 1) byLabel('김치찌개에 투표').click();
+    calls.length = 0;
+    byLabel('김치찌개에 투표').click(); // 13표로 짜장면(12표)을 앞지른다
+    const slides = calls.filter(({ keyframes }) => keyframes[0].transform);
+    expect(slides.map(({ row: r, keyframes }) => [r.querySelector('.menu-name').textContent, keyframes[0].transform])).toEqual([
+      ['김치찌개', 'translateY(60px)'],
+      ['짜장면', 'translateY(-60px)'],
+    ]);
+    const glows = calls.filter(({ keyframes }) => 'boxShadow' in keyframes[0]).map(({ row: r }) => r);
+    expect(glows).toContain(row('김치찌개'));
+  } finally {
+    offsetTop.mockRestore();
+    delete HTMLElement.prototype.animate;
+  }
+});
+
+test('patch 목록은 종류마다 다른 색 class를 붙인다', () => {
+  const { byLabel, add, panel } = mountVote();
+  add('비빔밥');
+  byLabel('돈까스 삭제').click();
+  const classes = Array.from(panel.querySelectorAll('.dt-patch'), (li) => li.className);
+  expect(classes).toContain('dt-patch patch-REMOVE');
+  expect(classes).toContain('dt-patch patch-TEXT');
 });
