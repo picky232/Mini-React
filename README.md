@@ -1,126 +1,56 @@
-# 미니 리액트 구현
+<div align="center">
 
-## 과제 개요
+# JS 미니 리액트 발표
 
-- 두 단계에 걸쳐 **"동작하는 미니 리액트"** 를 직접 구현합니다.
-  - **Phase 1**: Virtual DOM + Diff 알고리즘 + Patch
-  - **Phase 2**: 함수형 Component + State + Hooks (`useState` / `useEffect` / `useMemo`)
-- 최종 결과물은 사용자의 입력/클릭 등에 따라 **부분 업데이트되는 동작하는 웹 페이지**입니다.
+![JavaScript](https://img.shields.io/badge/JavaScript-ES2023-F7DF1E?logo=javascript&logoColor=black)
+![tests](https://img.shields.io/badge/tests-228%20passed-brightgreen)
 
-## Phase 1. Virtual DOM + Diff + Patch
+프레임워크 없이 **Vanilla JavaScript로 만든 미니 리액트**입니다.
 
-- React 의 핵심 개념인 Virtual DOM 과 Diff 알고리즘을 구현합니다.
-  - 브라우저의 DOM 정보를 읽어서 Virtual DOM 으로 변환하는 함수를 작성합니다.
-  - 두 Virtual DOM 을 비교하여 변경된 부분을 찾아내는 Diff 알고리즘을 작성합니다.
-- 이 알고리즘을 검증할 수 있는 웹 페이지를 구현합니다.
-  - 페이지 내에 다음과 같이 2개의 영역과 **Patch, 뒤로가기, 앞으로가기** 버튼들이 있어야 합니다.
-    - 실제 영역
-    - 테스트 영역
-  - 웹 페이지를 로드하면
-    - "실제 영역" 의 샘플 HTML 코드를 Virtual DOM 트리로 변환합니다.
-  - 방금 만든 Virtual DOM 을 이용하여 테스트 영역을 렌더링합니다.
-  - 사용자가 "테스트 영역" 에 있는 샘플 HTML 코드를 자유롭게 수정합니다.
-  - Patch 버튼을 누르면
-    - 현재 테스트 영역 상태를 다시 Virtual DOM 으로 만듭니다.
-    - Diff 알고리즘을 이용해서 이전 Virtual DOM 과 비교하여 변경된 부분을 찾습니다.
-    - 변경된 부분만 "실제 영역" 에 렌더링합니다.
-    - 새로 변경된 Virtual DOM 은 State History 에 저장합니다.
-  - 뒤로가기, 앞으로가기 버튼을 눌러 state history 에 저장된 특정 Virtual DOM 으로 이동 가능하며 "실제 영역", "테스트 영역" 도 함께 변경되어야 합니다.
 
-## Phase 2. Component · State · Hooks
+</div>
 
-- 이번 단계 과제는 기존 React 의 핵심 기능인 Component · State · Hooks 를 직접 구현하고 이를 활용하여 동작하는 웹 페이지를 만들어 보는 것입니다.
+## 동작 흐름
 
-### Component (컴포넌트)
+![점심 투표의 사용자 동작이 setState, 새 VDOM, diff, patch를 거쳐 화면과 DevTools에 반영되는 흐름](docs/images/flow.png)
 
-- Component 는 UI 를 나누는 작은 단위입니다.
-- 각각의 Component 는 자신만의 로직과 렌더링을 담당합니다.
-- 반드시 **함수형 컴포넌트** 로 구현합니다.
-- 구현 방식
-  - 함수형 컴포넌트를 감싸는 `FunctionComponent` 클래스를 직접 만듭니다.
-  - 이 클래스에는 아래 기능이 필요합니다.
-    - `hooks` 배열 (상태 저장용)
-    - `mount()`: 처음 렌더링
-    - `update()`: 상태 변경 후 다시 렌더링
-- **제약조건 (중요)**
-  - Hook 은 최상위 컴포넌트에서만 사용 가능합니다.
-  - State (상태) 는 "최상위 컴포넌트 (루트 컴포넌트)" 에서만 관리합니다.
-  - 자식 컴포넌트는 state (상태) 를 가지지 않고, 부모로부터 전달받은 props 만 사용합니다. (Lifting State Up 패턴)
-    - 즉, 자식 컴포넌트는 상태 없이 (Stateless) props 만 받아서 사용하는 순수 함수로 구현합니다.
+메뉴를 추가하거나 투표하면 **State → VDOM → diff → patch**를 거쳐 화면이 바뀌고, DevTools에서 결과를 확인할 수 있습니다.
 
-### State (상태)
+## 실제 데모 · 점심메뉴 투표
 
-- State 는 값이 변경될 수 있는 동적 데이터입니다.
-- State 가 바뀌면 → 화면이 자동으로 다시 그려져야 합니다.
+![점심메뉴 투표와 Mini React DevTools 화면](docs/images/lunch-demo.jpg)
 
-### Hooks
+---
 
-- 함수형 컴포넌트에서도 상태와 생명주기를 사용할 수 있게 해주는 기능입니다.
-- 최소 구현 대상
-  - `useState`
-  - `useEffect`
-  - `useMemo`
-- 핵심 질문
+## 차별점
 
-> "함수는 매번 새로 실행되는데, 상태는 어떻게 유지할까?" → 이 문제를 해결하는 것이 Hooks 의 핵심입니다.
+### 01 · 보안 — 입구 하나에서 막습니다
 
-## Phase 1 ↔ Phase 2 연계: Virtual DOM + Diff + Patch 활용
+![Phase 1과 Phase 2 모두 h()를 지나고, 위험 입력은 h()에서 막힌다](docs/images/security.png)
 
-- Phase 2 의 상태가 변경되어 다시 렌더링할 때, Phase 1 에서 만든 Virtual DOM 을 그대로 활용합니다.
-- 동작 흐름
-  1. Virtual DOM 생성
-  2. 이전 Virtual DOM 과 비교 (Diff)
-  3. 바뀐 부분만 실제 DOM 에 반영 (Patch)
+Phase 1과 Phase 2 모두 `h()`를 거치므로, 공통 보안 검사를 통해 위험한 태그와 속성을 차단하고 기존 화면을 유지하도록 구현했습니다.
 
-> **목표: 전체를 다시 그리지 않고 필요한 부분만 업데이트**
+### 02 · key — 다시 만들지 않고 옮깁니다
 
-## 테스트 페이지 개발
+| 5개 목록에서 | key 없음 | key 있음 |
+| --- | --- | --- |
+| 맨 앞에 추가 | 수정 5 + 추가 1 | **추가 1** |
+| 순서 뒤집기 | 수정 4 | **이동 4** (기존 노드 재사용) |
 
-- Phase 1 과 Phase 2 에서 구현한 내용을 활용하여 브라우저에서 동작하는 웹 페이지를 구현합니다.
-- 어떤 주제라도 상관 없습니다. 다만, 반드시 사용자의 입력/클릭 등에 따라 화면이 변경되어야 합니다.
+![A·B·C는 그대로 두고 D만 옮기는 예시와 key 비교 4단계](docs/images/key.png)
 
-## 기술 스택 / 제한
+key로 각 항목을 식별하고, LIS 알고리즘을 이용해 이미 순서가 맞는 노드는 유지하며 필요한 노드만 이동시킵니다.
 
-- HTML, CSS, Javascript (또는 Typescript) — Vanilla
-- 외부 프레임워크 (React, Vue 등) 사용 금지
+---
 
-## 공통 학습 원칙
+## 협업 과정
 
-- "학습" 보다는 "구현" 이 우선입니다. AI 등을 적극적으로 활용하여 **결과물을 만들어내는 것** 이 최우선 목표입니다.
-  - 다만, 만들어진 결과물 중 핵심 로직에 대해서는 이해하고 설명할 수 있어야 합니다.
-  - 코드를 직접 작성하기 어려운 경우, 전체 코드를 AI 를 통해 생성해도 괜찮습니다. 다만, 생성된 코드를 반드시 학습하고 그 원리를 이해해야 합니다.
-- 추가적으로, 다른 팀과의 차별점을 둘 수 있는 **추가 구현 요소** 에 대해서도 함께 고민해 보시기 바랍니다.
+**각자 만들고, 좋은 것만 합쳤습니다.**
 
-## 중점 포인트
+![각자 구현하고, AI와 함께 비교한 뒤, 장점만 합친 과정](docs/images/collab.png)
 
-### Phase 1 — 브라우저 / DOM / Diff 관련
+저희는 두 명이 각각 Phase 1과 Phase 2를 모두 구현했습니다.
 
-- 브라우저에서 DOM 을 다루는 방법 (Document, Window)
-- 실제 DOM 의 **변화를 감지** 하기 위한 브라우저 API
-- 실제 DOM 이 느린 이유
-  - Reflow / Repaint 관점
-- Virtual DOM
-  - 구조
-  - 필요한 이유
-- Diff 알고리즘
-  - 동작 방식
-  - 최소 변경을 찾기 위한 5가지 핵심 케이스
-  - 실제 DOM 에 반영 방법
-- React 에서 실제 DOM 을 변경할 때, Virtual DOM 과 Diff 알고리즘의 동작 방식
+이후 AI를 활용해 두 구현을 동일한 기준으로 비교했고, 구조가 달라 단순히 파일을 합치는 대신 한쪽 구조를 기준으로 장점을 다시 구현했습니다.
 
-### Phase 2 — Component / State / Hooks 관련
-
-- UI 를 어떻게 Component 로 나눌 것인가?
-- State (상태) 는 어디에 두는 것이 좋은가?
-- setState 는 상태 변경 외에 무엇을 해야 할까?
-- 여러 상태 변경을 한 번에 처리하는 방법은?
-  - Batching 방법을 고민해 보세요. 단 **선택 과제**입니다.
-- 이번에 구현한 React 와 실제 React 의 차이점에 대해서 공부해 보세요.
-
-## 품질
-
-- **단위 테스트** 를 통해 각 모듈 (Virtual DOM 변환, Diff, Patch, useState, useEffect, useMemo 등) 을 검증합니다.
-- 기능 테스트를 통해 화면이 제대로 동작하는지 확인합니다.
-- 테스트 영역에 다양한 태그와 요소를 추가해 여러 동작과 변화를 자유롭게 확인해 보세요.
-- **엣지 케이스를 최대한 고려** 합니다.
-- 이력서와 포트폴리오에 포함할 수 있을 만큼 완성도 높은 수준으로 구현합니다.
+이 과정에서 서로의 부족한 부분을 보완하면서 안정성과 성능을 개선할 수 있었습니다.

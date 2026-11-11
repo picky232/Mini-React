@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mini React · 점심 투표</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="./src/app/vote.css">
+  </head>
+  <body>
+    <main class="split">
+      <div class="app-pane">
+        <div id="vote-app"></div>
+        <p class="app-foot"><a href="./lab.html">Phase 1 · 2 실습 페이지</a></p>
+      </div>
+      <aside class="devtools" aria-labelledby="devtools-title">
+        <header class="dt-bar"><span id="devtools-title">Mini React DevTools</span><span class="dt-hint">patch가 바꾼 줄은 왼쪽에서 잠깐 빛나요</span></header>
+        <div id="devtools"></div>
+      </aside>
+    </main>
+    <script type="module">
+      import { startVote } from './src/app/vote.js';
+
+      startVote(document.getElementById('vote-app'), document.getElementById('devtools'));
+    </script>
+  </body>
+</html>
