@@ -87,21 +87,25 @@ function diagram(id, { width, height, nodes, edges = [], groups = [], notes = []
   document.getElementById(id).innerHTML = out + '</svg>';
 }
 
-// 1. 동작 흐름
+// 1. 점심 투표 홈페이지의 갱신 흐름
 diagram('flow', {
-  width: 1120, height: 720,
-  groups: [{ x: 20, y: 250, w: 1080, h: 230, color: 'green', label: '두 Phase가 같은 코드를 씀' }],
+  width: 1120, height: 560,
+  notes: [
+    { x: 20, y: 45, anchor: 'start', size: 32, weight: 800, text: '점심 투표 한 번이 화면에 반영되기까지' },
+    { x: 560, y: 530, size: 24, weight: 500, text: '같은 key의 메뉴는 다시 만들지 않고 기존 DOM을 재사용합니다.' },
+  ],
   nodes: [
-    { id: 'p1', x: 20, y: 20, w: 350, h: 170, color: 'blue', text: 'Phase 1\n테스트 영역 수정\n→ Patch 버튼' },
-    { id: 'p2', x: 450, y: 20, w: 650, h: 170, color: 'purple', text: 'Phase 2\n클릭 → setState → 루트 함수 재실행' },
-    { id: 'v', x: 50, y: 310, w: 290, h: 140, color: 'gray', text: '새 VDOM\n화면을 JS 객체로' },
-    { id: 'd', x: 415, y: 310, w: 290, h: 140, color: 'gray', text: 'diff\n이전 VDOM과 비교' },
-    { id: 'p', x: 780, y: 310, w: 290, h: 140, color: 'green', strong: true, text: 'patch\n바뀐 DOM만 수정' },
-    { id: 'e', x: 780, y: 560, w: 290, h: 130, color: 'purple', text: 'useEffect\nPhase 2만' },
+    { id: 'action', x: 20, y: 100, w: 190, h: 180, color: 'blue', big: 28, small: 23, text: '사용자 동작\n메뉴 추가 · 투표\n삭제 · 초기화' },
+    { id: 'state', x: 242, y: 100, w: 190, h: 180, color: 'purple', big: 28, small: 23, text: 'setState\n메뉴·알림\nState 변경' },
+    { id: 'vdom', x: 464, y: 100, w: 190, h: 180, color: 'amber', big: 28, small: 23, text: '새 VDOM\nVoteApp 재실행\nh()로 구성' },
+    { id: 'diff', x: 686, y: 100, w: 190, h: 180, color: 'gray', big: 28, small: 23, text: 'diff\n이전 VDOM과 비교\nPatch 목록 생성' },
+    { id: 'patch', x: 908, y: 100, w: 190, h: 180, color: 'green', strong: true, big: 28, small: 23, text: 'patch\n변경된 부분만\nDOM에 반영' },
+    { id: 'result', x: 160, y: 360, w: 720, h: 120, color: 'green', big: 28, small: 24, text: '투표 화면 갱신 + DevTools 결과 표시\n득표·순위 변화 / Patch · Hooks · 렌더 결과' },
   ],
   edges: [
-    { from: 'p1', to: 'v', fs: 'b', ts: 't', my: 230 }, { from: 'p2', to: 'v', fs: 'b', ts: 't', my: 230 },
-    { from: 'v', to: 'd' }, { from: 'd', to: 'p' }, { from: 'p', to: 'e', fs: 'b', ts: 't', dashed: true },
+    { from: 'action', to: 'state' }, { from: 'state', to: 'vdom' },
+    { from: 'vdom', to: 'diff' }, { from: 'diff', to: 'patch' },
+    { from: 'patch', to: 'result', fs: 'b', ts: 'r', color: 'green' },
   ],
 });
 
