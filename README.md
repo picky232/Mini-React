@@ -1,6 +1,22 @@
+<div align="center">
+
 # JS 미니 리액트 발표
 
+![JavaScript](https://img.shields.io/badge/JavaScript-ES2023-F7DF1E?logo=javascript&logoColor=black)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
+![CSS](https://img.shields.io/badge/CSS-663399?logo=css&logoColor=white)
+![runtime dependencies](https://img.shields.io/badge/runtime%20dependencies-0-blue)
+
+![Node.js](https://img.shields.io/badge/Node.js-22%20%C2%B7%2024%20%C2%B7%2026%2B-5FA04E?logo=nodedotjs&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8.3.6-646CFF?logo=vite&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-5.1.0-6E9F18?logo=vitest&logoColor=white)
+![jsdom](https://img.shields.io/badge/jsdom-31.0.0-555555)
+![TypeScript](https://img.shields.io/badge/TypeScript_(JSDoc_%EA%B2%80%EC%82%AC)-7.0.2-3178C6?logo=typescript&logoColor=white)
+![tests](https://img.shields.io/badge/tests-228%20passed-brightgreen)
+
 프레임워크 없이 **Vanilla JavaScript로 만든 미니 리액트**입니다. 두 사람이 각자 만든 구현을 하나로 합쳤습니다.
+
+</div>
 
 ## 동작 흐름
 
